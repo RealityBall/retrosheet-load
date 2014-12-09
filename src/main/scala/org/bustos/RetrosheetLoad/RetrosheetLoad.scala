@@ -10,12 +10,12 @@ import scala.io.Source
 object RetrosheetLoad extends App {
 
   import scala.collection.mutable.Queue
-  case class RunningData(ba: Queue[(Int, Int)], obp: Queue[(Int, Int)], slugging: Queue[(Int, Int)],
-                         baRH: Queue[(Int, Int)], obpRH: Queue[(Int, Int)], sluggingRH: Queue[(Int, Int)],
-                         baLH: Queue[(Int, Int)], obpLH: Queue[(Int, Int)], sluggingLH: Queue[(Int, Int)])
-  case class RunningVolatilityData(ba: Queue[(Int, Int)], obp: Queue[(Int, Int)], slugging: Queue[(Int, Int)],
-                                   baRH: Queue[(Int, Int)], obpRH: Queue[(Int, Int)], sluggingRH: Queue[(Int, Int)],
-                                   baLH: Queue[(Int, Int)], obpLH: Queue[(Int, Int)], sluggingLH: Queue[(Int, Int)])
+  case class RunningData(ba: Queue[(Int, Int)], obp: Queue[(Int, Int)], slugging: Queue[(Int, Int)], fantasy: Queue[Double],
+                         baRH: Queue[(Int, Int)], obpRH: Queue[(Int, Int)], sluggingRH: Queue[(Int, Int)], fantasyRH: Queue[Double],
+                         baLH: Queue[(Int, Int)], obpLH: Queue[(Int, Int)], sluggingLH: Queue[(Int, Int)], fantasyLH: Queue[Double])
+  case class RunningVolatilityData(ba: Queue[(Int, Int)], obp: Queue[(Int, Int)], slugging: Queue[(Int, Int)], fantasy: Queue[Double],
+                                   baRH: Queue[(Int, Int)], obpRH: Queue[(Int, Int)], sluggingRH: Queue[(Int, Int)], fantasyRH: Queue[Double],
+                                   baLH: Queue[(Int, Int)], obpLH: Queue[(Int, Int)], sluggingLH: Queue[(Int, Int)], fantasyLH: Queue[Double])
   case class RunningStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningData, volatilityData: RunningVolatilityData)
   case class Team(mnemonic: String, league: String, city: String, name: String)
   case class Player(id: String, lastName: String, firstName: String, batsWith: String, throwsWith: String, team: String, position: String)
@@ -133,8 +133,14 @@ object RetrosheetLoad extends App {
     val sortedHistory = playerHistory.sortBy { x => x.date }
     val currentHitterDay = new RetrosheetHitterDay("", "")
     val movingAverageData = RunningStatistics(currentHitterDay,
-                                              RunningData(Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)],Queue.empty[(Int, Int)]),
-                                              RunningVolatilityData(Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)],Queue.empty[(Int, Int)]))
+                                              RunningData(
+                                                  Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[Double], 
+                                                  Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[Double], 
+                                                  Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[Double]),
+                                              RunningVolatilityData(
+                                                  Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[Double], 
+                                                  Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[Double], 
+                                                  Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[(Int, Int)], Queue.empty[Double]))
     val finalStatistcs = sortedHistory.foldLeft(movingAverageData)(computeRunningPlayerStats)
   }
   println("")
@@ -153,7 +159,7 @@ object RetrosheetLoad extends App {
   val playersTable: TableQuery[PlayersTable] = TableQuery[PlayersTable]
 
   // Create a connection (called a "session") to an in-memory H2 database
-  //val db = Database.forURL("jdbc:mysql://localhost:3306/test", driver="com.mysql.jdbc.Driver", user="root", password="")
+  //val db = Database.forURL("jdbc:mysql://localhost:3306/mlbretrosheet", driver="com.mysql.jdbc.Driver", user="root", password="")
   val db = Database.forURL("jdbc:mysql://mysql.bustos.org:3306/mlbretrosheet", driver = "com.mysql.jdbc.Driver", user = "mlbrsheetuser", password = "mlbsheetUser")
 
   db.withSession { implicit session =>
@@ -222,6 +228,7 @@ object RetrosheetLoad extends App {
           day.RHatBat, day.RHsingle, day.RHdouble, day.RHtriple, day.RHhomeRun, day.RHRBI,
           day.RHbaseOnBalls, day.RHhitByPitch, day.RHsacFly, day.RHsacHit)
         hitterStats += (day.date, day.playerID,
+          day.RHdailyBattingAverage, day.LHdailyBattingAverage, day.dailyBattingAverage,
           day.RHbattingAverage, day.LHbattingAverage, day.battingAverage,
           day.RHonBasePercentage, day.RHonBasePercentage, day.onBasePercentage,
           day.RHsluggingPercentage, day.LHsluggingPercentage, day.sluggingPercentage,

@@ -73,10 +73,13 @@ class HitterRawRHStatsTable(tag: Tag)
 }
 
 class HitterDailyStatsTable(tag: Tag)
-  extends Table[(String, String, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double)](tag, "hitterDailyStats") {
+  extends Table[(String, String, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double)](tag, "hitterDailyStats") {
 
   def date: Column[String] = column[String]("date")
   def playerID: Column[String] = column[String]("playerID")
+  def RHdailyBattingAverage: Column[Double] = column[Double]("RHdailyBattingAverage")
+  def LHdailyBattingAverage: Column[Double] = column[Double]("LHdailyBattingAverage")
+  def dailyBattingAverage: Column[Double] = column[Double]("dailyBattingAverage")
   def RHbattingAverage: Column[Double] = column[Double]("RHbattingAverage")
   def LHbattingAverage: Column[Double] = column[Double]("LHbattingAverage")
   def battingAverage: Column[Double] = column[Double]("battingAverage")
@@ -91,8 +94,9 @@ class HitterDailyStatsTable(tag: Tag)
   def fantasyScore: Column[Double] = column[Double]("fantasyScore")
 
   // Every table needs a * projection with the same type as the table's type parameter
-  def * : ProvenShape[(String, String, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double)] =
+  def * : ProvenShape[(String, String, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double)] =
     (date, playerID, 
+      RHdailyBattingAverage, LHdailyBattingAverage, dailyBattingAverage,  
       RHbattingAverage, LHbattingAverage, battingAverage,  
       RHonBasePercentage, LHonBasePercentage, onBasePercentage, RHsluggingPercentage, LHsluggingPercentage,
       sluggingPercentage, RHfantasyScore, LHfantasyScore, fantasyScore)
