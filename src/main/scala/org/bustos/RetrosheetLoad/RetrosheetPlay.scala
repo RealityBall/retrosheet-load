@@ -30,7 +30,6 @@ class RetrosheetPlay (val play: String) {
     else if (isTriple) 3
     else if (!advancements.filter(x => x._1 == "B" && !x._2.startsWith("H")).isEmpty) {
       // Batter advanced due to Error
-      //println(play)
       val position = advancements.filter(x => x._1 == "B" && !x._2.startsWith("H")).map(_._2)
       position.head.toInt
     } else 0
