@@ -24,7 +24,7 @@ class RetrosheetGameInfo(val id: String) {
       case "ump2b" => scoring.ump2b = items(2)
       case "ump3b" => scoring.ump3b = items(2)
       case "howscored" => scoring.howscored = items(2)
-      case "temp" => conditions.temp = items(2).toInt
+      case "temp" => if (items(2).forall(_.isDigit)) conditions.temp = items(2).toInt
       case "winddir" => conditions.winddir = items(2)
       case "windspeed" => conditions.windspeed = items(2).toInt
       case "fieldcond" => conditions.fieldcond = items(2)
