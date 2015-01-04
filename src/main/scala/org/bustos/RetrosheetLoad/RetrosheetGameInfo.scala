@@ -1,8 +1,8 @@
 package org.bustos.RetrosheetLoad
 
-import RetrosheetRecords._
-
 class RetrosheetGameInfo(val id: String) {
+
+  import RetrosheetRecords._
 
   val game = Game(id, "", "", "", "", 0)
   val conditions = GameConditions(id, "", "", false, 0, "", 0, "", "", "")

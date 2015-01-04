@@ -2,10 +2,10 @@ package org.bustos.RetrosheetLoad
 
 import scala.collection.mutable.Queue
 import scala.math.{ pow, sqrt }
+import FantasyScoreSheet._
+import RetrosheetRecords._
 
-class RetrosheetHitterDay(val date: String, val playerID: String) {
-  
-  import RetrosheetRecords._
+class RetrosheetHitterDay(val date: String, val id: String) {
   
   var RHatBat: Int = 0
   var RHsingle: Int = 0
@@ -37,17 +37,17 @@ class RetrosheetHitterDay(val date: String, val playerID: String) {
   var battingAverage = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var onBasePercentage = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var sluggingPercentage = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScore = Statistic(0.0, 0.0, 0.0)
+  var fantasyScores = FantasyGames.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
   
   var battingAverage25 = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var onBasePercentage25 = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var sluggingPercentage25 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScore25 = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var fantasyScores25 = FantasyGames.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap 
   
   var battingVolatility100 = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var onBaseVolatility100 = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var sluggingVolatility100 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScoreVolatility100 = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var fantasyScoresVolatility100 = FantasyGames.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
       
   def accumulate(data: RunningStatistics) = {
     data.fullAccum.LHatBat = data.fullAccum.LHatBat + LHatBat
@@ -99,29 +99,29 @@ class RetrosheetHitterDay(val date: String, val playerID: String) {
           data.fullAccum.LHatBat + data.fullAccum.LHbaseOnBalls + data.fullAccum.LHhitByPitch + data.fullAccum.LHsacFly).toDouble
       data.fullAccum.sluggingPercentage.total = (LHaccumTotalBases + RHaccumTotalBases).toDouble / (data.fullAccum.LHatBat + data.fullAccum.RHatBat).toDouble
     }
-    data.fullAccum.fantasyScore = fantasyScore.copy()
+    data.fullAccum.fantasyScores = fantasyScores
     
     battingAverage = data.fullAccum.battingAverage.copy()
     onBasePercentage = data.fullAccum.onBasePercentage.copy()
     sluggingPercentage = data.fullAccum.sluggingPercentage.copy()
-    fantasyScore = data.fullAccum.fantasyScore.copy()
+    fantasyScores = data.fullAccum.fantasyScores
     
     data.averagesData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.averagesData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
                                                   RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly,
                                                   LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.averagesData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
-    data.averagesData.fantasy.enqueue(fantasyScore)
+    fantasyScores.map({case (k, v) => data.averagesData.fantasy(k).enqueue(fantasyScores(k))})
     if (data.averagesData.ba.size > 25) {
       data.averagesData.ba.dequeue
       data.averagesData.obp.dequeue
       data.averagesData.slugging.dequeue
-      data.averagesData.fantasy.dequeue
+      data.averagesData.fantasy.mapValues(_.dequeue)
     }      
     battingAverage25 = movingAverage(data.averagesData.ba)
     onBasePercentage25 = movingAverage(data.averagesData.obp)
     sluggingPercentage25 = movingAverage(data.averagesData.slugging)
-    fantasyScore25 = movingAverageSimple(data.averagesData.fantasy)
+    fantasyScores25 = fantasyScores25.map({case (k, v) => k -> movingAverageSimple(data.averagesData.fantasy(k))}).toMap
   
     data.volatilityData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.volatilityData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
@@ -136,7 +136,7 @@ class RetrosheetHitterDay(val date: String, val playerID: String) {
     battingVolatility100 = movingVolatility(data.volatilityData.ba)  
     onBaseVolatility100 = movingVolatility(data.volatilityData.obp)
     sluggingVolatility100 = movingVolatility(data.volatilityData.slugging)
-    fantasyScoreVolatility100 = movingVolatilitySimple(data.volatilityData.fantasy)      
+    fantasyScoresVolatility100 = fantasyScoresVolatility100.map({case (k, v) => k -> movingVolatilitySimple(data.volatilityData.fantasy(k))}).toMap
   }
 
   def movingAverageSimple(data: Queue[Statistic]): Statistic = {
@@ -196,11 +196,19 @@ class RetrosheetHitterDay(val date: String, val playerID: String) {
     } else x
   }
   
+  def updateFantasyScore(playOutcome: String, facingRighty: Boolean, gameName: String, track: Statistic): Statistic = {
+    if (facingRighty) {
+      track.rh = track.rh + FantasyGames(gameName)(playOutcome)
+    } else {
+      track.lh = track.lh + FantasyGames(gameName)(playOutcome)
+    }
+    track.total = track.total + FantasyGames(gameName)(playOutcome)
+    track
+  }
+  
   def addStolenBase(play: RetrosheetPlay, facingRighty: Boolean) {
     stolenBase = stolenBase + 1
-    if (facingRighty) fantasyScore.rh = fantasyScore.rh + 2
-    else fantasyScore.lh = fantasyScore.lh + 2
-    fantasyScore.total = fantasyScore.total + 2
+    fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("SB", facingRighty, k, v))})
   }
 
   def updateWithPlay(play: RetrosheetPlay, facingRighty: Boolean) = {
@@ -211,57 +219,45 @@ class RetrosheetHitterDay(val date: String, val playerID: String) {
     if (play.isSingle) {
       if (facingRighty) {
         RHsingle = RHsingle + 1
-        fantasyScore.rh = fantasyScore.rh + 1
       } else {
         LHsingle = LHsingle + 1
-        fantasyScore.lh = fantasyScore.lh + 1
       }
-      fantasyScore.total = fantasyScore.total + 1
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("1B", facingRighty, k, v))})
     } else if (play.isDouble) {
       if (facingRighty) {
         RHdouble = RHdouble + 1
-        fantasyScore.rh = fantasyScore.rh + 2
       } else {
         LHdouble = LHdouble + 1
-        fantasyScore.lh = fantasyScore.lh + 2
       }
-      fantasyScore.total = fantasyScore.total + 2
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("2B", facingRighty, k, v))})
     } else if (play.isTriple) {
       if (facingRighty) {
         RHtriple = RHtriple + 1
-        fantasyScore.rh = fantasyScore.rh + 3
       } else {
         LHtriple = LHtriple + 1
-        fantasyScore.lh = fantasyScore.lh + 3
       }
-      fantasyScore.total = fantasyScore.total + 3
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("3B", facingRighty, k, v))})
     } else if (play.isHomeRun) {
       if (facingRighty) {
         RHhomeRun = RHhomeRun + 1
-        fantasyScore.rh = fantasyScore.rh + 4
       } else {
         LHhomeRun = LHhomeRun + 1
-        fantasyScore.lh = fantasyScore.lh + 4
       }
-      fantasyScore.total = fantasyScore.total + 4
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("HR", facingRighty, k, v))})
     } else if (play.isBaseOnBalls) {
       if (facingRighty) {
         RHbaseOnBalls = RHbaseOnBalls + 1
-        fantasyScore.rh = fantasyScore.rh + 1
       } else {
         LHbaseOnBalls = LHbaseOnBalls + 1
-        fantasyScore.lh = fantasyScore.lh + 1
       }
-      fantasyScore.total = fantasyScore.total + 1
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("BB", facingRighty, k, v))})
     } else if (play.isHitByPitch) {
       if (facingRighty) {
         RHhitByPitch = RHhitByPitch + 1
-        fantasyScore.rh = fantasyScore.rh + 1
       } else {
         LHhitByPitch = LHhitByPitch + 1
-        fantasyScore.lh = fantasyScore.lh + 1
       }
-      fantasyScore.total = fantasyScore.total + 1
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("HBP", facingRighty, k, v))})
     } else if (play.isSacFly) {
       if (facingRighty) {
         RHsacFly = RHsacFly + 1
@@ -274,14 +270,15 @@ class RetrosheetHitterDay(val date: String, val playerID: String) {
       } else {
         LHsacHit = LHsacHit + 1
       }
+    } else if (play.isStrikeOut) {
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("SO", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("OUT", facingRighty, k, v))})
     }
     if (facingRighty) {
       RHRBI = RHRBI + play.rbis
-      fantasyScore.rh = fantasyScore.rh + play.rbis
     } else {
       LHRBI = LHRBI + play.rbis
-      fantasyScore.lh = fantasyScore.lh + play.rbis
     }
-    fantasyScore.total = fantasyScore.total + play.rbis
+    fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("RBI", facingRighty, k, v))})
   }
 }
