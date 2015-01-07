@@ -29,6 +29,11 @@ class RetrosheetHitterDay(val date: String, val id: String) {
   var LHsacFly: Int = 0
   var LHsacHit: Int = 0
   
+  def LHhits(): Int = {LHsingle + LHdouble + LHtriple + LHhomeRun}
+  def RHhits(): Int = {RHsingle + RHdouble + RHtriple + RHhomeRun}
+  def LHtotalBases(): Int = {LHsingle + 2 * LHdouble + 3 * LHtriple + 4 * LHhomeRun}
+  def RHtotalBases(): Int = {RHsingle + 2 * RHdouble + 3 * RHtriple + 4 * RHhomeRun}
+
   var runs: Int = 0
   var stolenBase: Int = 0
   var caughtStealing: Int = 0
@@ -68,14 +73,12 @@ class RetrosheetHitterDay(val date: String, val id: String) {
     data.fullAccum.RHsacFly = data.fullAccum.RHsacFly + RHsacFly
     data.fullAccum.LHsacHit = data.fullAccum.LHsacHit + LHsacHit
     data.fullAccum.RHsacHit = data.fullAccum.RHsacHit + RHsacHit
-    val LHhits: Int = LHsingle + LHdouble + LHtriple + LHhomeRun
-    val RHhits: Int = RHsingle + RHdouble + RHtriple + RHhomeRun
-    val LHtotalBases: Int = LHsingle + 2 * LHdouble + 3 * LHtriple + 4 * LHhomeRun
-    val RHtotalBases: Int = RHsingle + 2 * RHdouble + 3 * RHtriple + 4 * RHhomeRun
+    
     val LHaccumHits: Int = data.fullAccum.LHsingle + data.fullAccum.LHdouble + data.fullAccum.LHtriple + data.fullAccum.LHhomeRun
     val RHaccumHits: Int = data.fullAccum.RHsingle + data.fullAccum.RHdouble + data.fullAccum.RHtriple + data.fullAccum.RHhomeRun
     val LHaccumTotalBases: Int = data.fullAccum.LHsingle + 2 * data.fullAccum.LHdouble + 3 * data.fullAccum.LHtriple + 4 * data.fullAccum.LHhomeRun
     val RHaccumTotalBases: Int = data.fullAccum.RHsingle + 2 * data.fullAccum.RHdouble + 3 * data.fullAccum.RHtriple + 4 * data.fullAccum.RHhomeRun
+    
     if (data.fullAccum.LHatBat > 0) {
       if (LHatBat > 0) dailyBattingAverage.lh = LHhits.toDouble / LHatBat.toDouble
       data.fullAccum.battingAverage.lh = LHaccumHits.toDouble / data.fullAccum.LHatBat.toDouble
@@ -196,7 +199,7 @@ class RetrosheetHitterDay(val date: String, val id: String) {
     } else x
   }
   
-  def updateFantasyScore(playOutcome: String, facingRighty: Boolean, gameName: String, track: Statistic): Statistic = {
+  def updateFantasyScore(playOutcome: String, gameName: String, track: Statistic, facingRighty: Boolean): Statistic = {
     if (facingRighty) {
       track.rh = track.rh + FantasyGames(gameName)(playOutcome)
     } else {
@@ -208,9 +211,18 @@ class RetrosheetHitterDay(val date: String, val id: String) {
   
   def addStolenBase(play: RetrosheetPlay, facingRighty: Boolean) {
     stolenBase = stolenBase + 1
-    fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("SB", facingRighty, k, v))})
+    fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("SB", k, v, facingRighty))})
   }
 
+  def updateBallpark(ballpark: BallparkDaily) = {
+    ballpark.RHhits = ballpark.RHhits + RHhits
+    ballpark.RHtotalBases = ballpark.RHtotalBases + RHtotalBases
+    ballpark.RHatBat = ballpark.RHatBat + RHatBat
+    ballpark.LHhits = ballpark.LHhits + LHhits
+    ballpark.LHtotalBases = ballpark.LHtotalBases + LHtotalBases
+    ballpark.LHatBat = ballpark.LHatBat + LHatBat
+  }
+  
   def updateWithPlay(play: RetrosheetPlay, facingRighty: Boolean) = {
     if (play.atBat) {
       if (facingRighty) RHatBat = RHatBat + 1
@@ -222,42 +234,42 @@ class RetrosheetHitterDay(val date: String, val id: String) {
       } else {
         LHsingle = LHsingle + 1
       }
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("1B", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("1B", k, v, facingRighty))})
     } else if (play.isDouble) {
       if (facingRighty) {
         RHdouble = RHdouble + 1
       } else {
         LHdouble = LHdouble + 1
       }
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("2B", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("2B", k, v, facingRighty))})
     } else if (play.isTriple) {
       if (facingRighty) {
         RHtriple = RHtriple + 1
       } else {
         LHtriple = LHtriple + 1
       }
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("3B", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("3B", k, v, facingRighty))})
     } else if (play.isHomeRun) {
       if (facingRighty) {
         RHhomeRun = RHhomeRun + 1
       } else {
         LHhomeRun = LHhomeRun + 1
       }
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("HR", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("HR", k, v, facingRighty))})
     } else if (play.isBaseOnBalls) {
       if (facingRighty) {
         RHbaseOnBalls = RHbaseOnBalls + 1
       } else {
         LHbaseOnBalls = LHbaseOnBalls + 1
       }
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("BB", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("BB", k, v, facingRighty))})
     } else if (play.isHitByPitch) {
       if (facingRighty) {
         RHhitByPitch = RHhitByPitch + 1
       } else {
         LHhitByPitch = LHhitByPitch + 1
       }
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("HBP", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("HBP", k, v, facingRighty))})
     } else if (play.isSacFly) {
       if (facingRighty) {
         RHsacFly = RHsacFly + 1
@@ -271,14 +283,14 @@ class RetrosheetHitterDay(val date: String, val id: String) {
         LHsacHit = LHsacHit + 1
       }
     } else if (play.isStrikeOut) {
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("SO", facingRighty, k, v))})
-      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("OUT", facingRighty, k, v))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("SO", k, v, facingRighty))})
+      fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("OUT", k, v, facingRighty))})
     }
     if (facingRighty) {
       RHRBI = RHRBI + play.rbis
     } else {
       LHRBI = LHRBI + play.rbis
     }
-    fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("RBI", facingRighty, k, v))})
+    fantasyScores = fantasyScores.map({case (k, v) => (k -> updateFantasyScore("RBI", k, v, facingRighty))})
   }
 }

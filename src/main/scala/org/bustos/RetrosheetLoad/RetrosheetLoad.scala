@@ -25,7 +25,7 @@ object RetrosheetLoad extends App {
   val playerRoster: Regex = "(.*),(.*),(.*),([BRL]),([BRL]),(.*),(.*)".r
   val teamExpression: Regex = "(.*),(.*),(.*),(.*)".r
   val erExpression: Regex = "data,er,(.*),(.*)".r
-
+  val ballparkExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)".r
   val mysqlURL = envOrNone("MLB_MYSQL_URL").get
   val mysqlUser = envOrNone("MLB_MYSQL_USER").get
   val mysqlPassword = envOrNone("MLB_MYSQL_PASSWORD").get
@@ -46,9 +46,13 @@ object RetrosheetLoad extends App {
   val hitterFantasyMoving: TableQuery[HitterFantasyMovingTable] = TableQuery[HitterFantasyMovingTable]
   tables += ("hitterFantasyMovingStats" -> hitterFantasyMoving)
   val hitterVolatilityStats: TableQuery[HitterStatsVolatilityTable] = TableQuery[HitterStatsVolatilityTable]
-  tables += ("hitterVolatilityStats" -> hitterVolatilityStats)
+  tables += ("hitterVolatilityStats" -> hitterVolatilityStats) 
   val gamesTable: TableQuery[GamesTable] = TableQuery[GamesTable]
   tables += ("games" -> gamesTable)
+  val ballparkDailiesTable: TableQuery[BallparkDailiesTable] = TableQuery[BallparkDailiesTable]
+  tables += ("ballparkDailies" -> ballparkDailiesTable)
+  val ballparkTable: TableQuery[BallparkTable] = TableQuery[BallparkTable]
+  tables += ("ballpark" -> ballparkTable)
   val gameConditionsTable: TableQuery[GameConditionsTable] = TableQuery[GameConditionsTable]
   tables += ("gameConditions" -> gameConditionsTable)
   val gameScoringTable: TableQuery[GameScoringTable] = TableQuery[GameScoringTable]
@@ -105,6 +109,18 @@ object RetrosheetLoad extends App {
   }
   
   maintainDatabase
+  
+  val ballparkFile = new File("/Users/mauricio/Google Drive/Projects/fantasySports/retrosheetData/parkcode.txt")
+  println("Updating ballpark codes...")
+  db.withSession { implicit session =>
+    for (line <- Source.fromFile(ballparkFile).getLines) {
+      if (!line.startsWith("PARKID")) {
+        val data = line.split(',')
+        ballparkTable += Ballpark(data(0), data(1), data(2), data(3), data(4), data(5), data(6), data(7), data(8))
+      }
+    }
+   }
+    
   for (i <- 2010 to 2014) processYear(i.toString)
   
   def processYear(year: String) = {    
@@ -114,6 +130,7 @@ object RetrosheetLoad extends App {
     val teamFile = new File("/Users/mauricio/Google Drive/Projects/fantasySports/retrosheetData/" + year + "eve/TEAM" + year)
     var teams = Map.empty[String, Team]
     var games = List.empty[RetrosheetGameInfo]
+    var ballparks = Map.empty[String, BallparkDaily]
   
     for (line <- Source.fromFile(teamFile).getLines) {
       line match {
@@ -140,6 +157,7 @@ object RetrosheetLoad extends App {
       println("")
       println(f.getName + " - ")
       var currentGame: RetrosheetGameInfo = null
+      var currentBallpark: BallparkDaily = null
       var currentHomePitcher: PitcherDaily = null
       var currentAwayPitcher: PitcherDaily = null
       var currentInning: Int = 1
@@ -150,12 +168,16 @@ object RetrosheetLoad extends App {
         line match {
           case gameIdExpression(id) => {
             currentGame = new RetrosheetGameInfo(id)
+            currentBallpark = new BallparkDaily("", "", 0, 0, 0, 0, 0, 0)
+            ballparks += (currentGame.game.id -> currentBallpark)
             games = currentGame :: games
             gamePitchers = gamePitchers.empty
             print(currentGame.game.id + ",")
           }
           case gameInfoExpression(data) => {
             currentGame.processInfoRecord(line)
+            ballparks(currentGame.game.id).id = currentGame.game.site
+            ballparks(currentGame.game.id).date = currentGame.game.date
           }
           case pitcherHomeExpression(id, name, hitting)    => {
             currentHomePitcher = PitcherDaily(id, currentGame.game.date, currentGame.scoring.wp == id, currentGame.scoring.lp == id, currentGame.scoring.save == id, 0, 0, 0, 0, 0, 0, false, false, 0, 0)
@@ -191,6 +213,7 @@ object RetrosheetLoad extends App {
             val play = new RetrosheetPlay(pitches, playString)
             if (currentSide == 0) currentHomePitcher.outs = currentHomePitcher.outs + play.outs
             else currentAwayPitcher.outs = currentAwayPitcher.outs + play.outs
+            val facingRighty = (side == "0" && players(currentHomePitcher.id).throwsWith == "R") || (side == "1" && players(currentAwayPitcher.id).throwsWith == "R")
             if (!daySummaries.contains(id)) {
               val newHitterDay = new RetrosheetHitterDay(currentGame.game.date, id)
               daySummaries += (id -> List(newHitterDay))
@@ -200,7 +223,6 @@ object RetrosheetLoad extends App {
               currentHitterDay = new RetrosheetHitterDay(currentGame.game.date, id)
               daySummaries += (id -> (currentHitterDay :: daySummaries(id)))
             }
-            val facingRighty = (side == "0" && players(currentHomePitcher.id).throwsWith == "R") || (side == "1" && players(currentAwayPitcher.id).throwsWith == "R")
             if (side == "0") processPitches(currentHomePitcher, play)
             else processPitches(currentAwayPitcher, play)
             if (play.isStolenBase) {
@@ -216,6 +238,7 @@ object RetrosheetLoad extends App {
             }
             runners = moveRunners(id, play, runners)
             currentHitterDay.updateWithPlay(play, facingRighty)
+            currentHitterDay.updateBallpark(currentBallpark)
           }
           case _ => {}
         }
@@ -248,6 +271,8 @@ object RetrosheetLoad extends App {
       playersTable ++= players.values.map({player => Player(player.id, year, player.lastName, player.firstName, player.batsWith, player.throwsWith, player.team, player.position)})
       println("Pitcher dailies for " + year)
       pitcherDailyTable ++= pitchers
+      println("Ballpark dailies for " + year)
+      ballparkDailiesTable ++= ballparks.values
   
       var progress: Int = 0
       for (playerHistory <- daySummaries.values) {
