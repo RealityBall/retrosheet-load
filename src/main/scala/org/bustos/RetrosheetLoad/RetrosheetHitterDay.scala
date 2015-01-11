@@ -1,11 +1,12 @@
 package org.bustos.RetrosheetLoad
 
-import scala.collection.mutable.Queue
-import scala.math.{ pow, sqrt }
 import FantasyScoreSheet._
 import RetrosheetRecords._
 
-class RetrosheetHitterDay(val date: String, val id: String) {
+class RetrosheetHitterDay(val date: String, val id: String) extends StatisticsTrait {
+  
+  val MovingAverageAtBatWindow = 25
+  val VolatilityAtBatWindow = 100
   
   var RHatBat: Int = 0
   var RHsingle: Int = 0
@@ -42,19 +43,19 @@ class RetrosheetHitterDay(val date: String, val id: String) {
   var battingAverage = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var onBasePercentage = Statistic(Double.NaN, Double.NaN, Double.NaN)
   var sluggingPercentage = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScores = FantasyGames.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
+  var fantasyScores = FantasyGamesBatting.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
   
-  var battingAverage25 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var onBasePercentage25 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var sluggingPercentage25 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScores25 = FantasyGames.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap 
+  var battingAverageMov = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var onBasePercentageMov = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var sluggingPercentageMov = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var fantasyScoresMov = FantasyGamesBatting.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap 
   
-  var battingVolatility100 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var onBaseVolatility100 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var sluggingVolatility100 = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScoresVolatility100 = FantasyGames.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
+  var battingVolatility = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var onBaseVolatility = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var sluggingVolatility = Statistic(Double.NaN, Double.NaN, Double.NaN)
+  var fantasyScoresVolatility = FantasyGamesBatting.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
       
-  def accumulate(data: RunningStatistics) = {
+  def accumulate(data: RunningHitterStatistics) = {
     data.fullAccum.LHatBat = data.fullAccum.LHatBat + LHatBat
     data.fullAccum.RHatBat = data.fullAccum.RHatBat + RHatBat
     data.fullAccum.LHsingle = data.fullAccum.LHsingle + LHsingle
@@ -93,21 +94,23 @@ class RetrosheetHitterDay(val date: String, val id: String) {
       data.fullAccum.onBasePercentage.rh = (RHaccumHits + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch).toDouble /
         (data.fullAccum.RHatBat + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch + data.fullAccum.RHsacFly).toDouble
     }
+    if (LHatBat + RHatBat > 0) dailyBattingAverage.total = (LHhits + RHhits).toDouble / (LHatBat + RHatBat).toDouble
     if (data.fullAccum.LHatBat > 0 || data.fullAccum.RHatBat > 0) {
-      if (LHatBat + RHatBat > 0) dailyBattingAverage.total = (LHhits + RHhits).toDouble / (LHatBat + RHatBat).toDouble
       data.fullAccum.battingAverage.total = (LHaccumHits + RHaccumHits).toDouble / (data.fullAccum.RHatBat + data.fullAccum.LHatBat).toDouble
-      data.fullAccum.onBasePercentage.total = (LHaccumHits + data.fullAccum.LHbaseOnBalls + data.fullAccum.LHhitByPitch +
-        RHaccumHits + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch).toDouble /
-        (data.fullAccum.RHatBat + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch + data.fullAccum.RHsacFly +
-          data.fullAccum.LHatBat + data.fullAccum.LHbaseOnBalls + data.fullAccum.LHhitByPitch + data.fullAccum.LHsacFly).toDouble
       data.fullAccum.sluggingPercentage.total = (LHaccumTotalBases + RHaccumTotalBases).toDouble / (data.fullAccum.LHatBat + data.fullAccum.RHatBat).toDouble
+    }
+    if (data.fullAccum.RHatBat + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch + data.fullAccum.RHsacFly +
+               data.fullAccum.LHatBat + data.fullAccum.LHbaseOnBalls + data.fullAccum.LHhitByPitch + data.fullAccum.LHsacFly > 0) {
+      data.fullAccum.onBasePercentage.total = (LHaccumHits + data.fullAccum.LHbaseOnBalls + data.fullAccum.LHhitByPitch +
+              RHaccumHits + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch).toDouble /
+              (data.fullAccum.RHatBat + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch + data.fullAccum.RHsacFly +
+               data.fullAccum.LHatBat + data.fullAccum.LHbaseOnBalls + data.fullAccum.LHhitByPitch + data.fullAccum.LHsacFly).toDouble
     }
     data.fullAccum.fantasyScores = fantasyScores
     
     battingAverage = data.fullAccum.battingAverage.copy()
     onBasePercentage = data.fullAccum.onBasePercentage.copy()
     sluggingPercentage = data.fullAccum.sluggingPercentage.copy()
-    fantasyScores = data.fullAccum.fantasyScores
     
     data.averagesData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.averagesData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
@@ -115,97 +118,43 @@ class RetrosheetHitterDay(val date: String, val id: String) {
                                                   LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.averagesData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
     fantasyScores.map({case (k, v) => data.averagesData.fantasy(k).enqueue(fantasyScores(k))})
-    if (data.averagesData.ba.size > 25) {
+    
+    if (data.averagesData.ba.size > MovingAverageAtBatWindow) {
       data.averagesData.ba.dequeue
       data.averagesData.obp.dequeue
       data.averagesData.slugging.dequeue
       data.averagesData.fantasy.mapValues(_.dequeue)
     }      
-    battingAverage25 = movingAverage(data.averagesData.ba)
-    onBasePercentage25 = movingAverage(data.averagesData.obp)
-    sluggingPercentage25 = movingAverage(data.averagesData.slugging)
-    fantasyScores25 = fantasyScores25.map({case (k, v) => k -> movingAverageSimple(data.averagesData.fantasy(k))}).toMap
+    
+    battingAverageMov = movingAverage(data.averagesData.ba)
+    onBasePercentageMov = movingAverage(data.averagesData.obp)
+    sluggingPercentageMov = movingAverage(data.averagesData.slugging)
+    fantasyScoresMov = fantasyScoresMov.map({case (k, v) => k -> movingAverageSimple(data.averagesData.fantasy(k))}).toMap
   
     data.volatilityData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.volatilityData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
                                                     RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly,
                                                     LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.volatilityData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
-    if (data.volatilityData.ba.size > 100) {
+    
+    if (data.volatilityData.ba.size > VolatilityAtBatWindow) {
       data.volatilityData.ba.dequeue
       data.volatilityData.obp.dequeue
       data.volatilityData.slugging.dequeue
     }
-    battingVolatility100 = movingVolatility(data.volatilityData.ba)  
-    onBaseVolatility100 = movingVolatility(data.volatilityData.obp)
-    sluggingVolatility100 = movingVolatility(data.volatilityData.slugging)
-    fantasyScoresVolatility100 = fantasyScoresVolatility100.map({case (k, v) => k -> movingVolatilitySimple(data.volatilityData.fantasy(k))}).toMap
+    battingVolatility = movingVolatility(data.volatilityData.ba)  
+    onBaseVolatility = movingVolatility(data.volatilityData.obp)
+    sluggingVolatility = movingVolatility(data.volatilityData.slugging)
+    fantasyScoresVolatility = fantasyScoresVolatility.map({case (k, v) => k -> movingVolatilitySimple(data.volatilityData.fantasy(k))}).toMap
   }
 
-  def movingAverageSimple(data: Queue[Statistic]): Statistic = {
-    val runningSum = data.foldLeft(Statistic(0.0, 0.0, 0.0))({(x, y) => Statistic(accum(x.total, y.total), accum(x.rh, y.rh), accum(x.lh, y.lh))})
-    val runningCounts = data.foldLeft(Statistic(0.0, 0.0, 0.0))({(x, y) => Statistic(accumCount(x.total, y.total), accumCount(x.rh, y.rh), accumCount(x.lh, y.lh))})
-    if (data.size > 0) Statistic(runningSum.total.toDouble / runningCounts.total.toDouble, 
-                                 runningSum.rh.toDouble / runningCounts.rh.toDouble, 
-                                 runningSum.lh.toDouble / runningCounts.lh.toDouble)
-    else Statistic(Double.NaN, Double.NaN, Double.NaN)
-  }
-
-  def movingAverage(data: Queue[StatisticInputs]): Statistic = {
-    val runningSum = data.foldLeft(StatisticInputs(0, 0, 0, 0, 0, 0))({(x, y) => StatisticInputs(x.totalNumer + y.totalNumer, x.totalDenom + y.totalDenom, 
-                                                                                                 x.rhNumer + y.rhNumer, x.rhDenom + y.rhDenom, 
-                                                                                                 x.lhNumer + y.lhNumer, x.lhDenom + y.lhDenom)})
-    if (data.size > 0) Statistic(if (runningSum.totalDenom > 0.0) runningSum.totalNumer.toDouble / runningSum.totalDenom.toDouble else Double.NaN, 
-                                 if (runningSum.rhDenom > 0.0) runningSum.rhNumer.toDouble / runningSum.rhDenom.toDouble else Double.NaN, 
-                                 if (runningSum.lhDenom > 0.0) runningSum.lhNumer.toDouble / runningSum.lhDenom.toDouble else Double.NaN)
-    else Statistic(Double.NaN, Double.NaN, Double.NaN)
-  }
-
-  def movingVolatilitySimple(data: Queue[Statistic]): Statistic = {
-    val average = movingAverageSimple(data)    
-    val runningAccum = data.foldLeft(Statistic(0.0, 0.0, 0.0))({(x, y) => Statistic(x.total + pow(y.total - average.total, 2.0), x.rh + pow(y.rh - average.rh, 2.0), x.lh + pow(y.lh - average.lh, 2.0))})
-    val runningCounts = data.foldLeft(Statistic(0.0, 0.0, 0.0))({(x, y) => Statistic(accumCount(x.total, y.total), accumCount(x.rh, y.rh), accumCount(x.lh, y.lh))})
-    Statistic(sqrt(runningAccum.total / runningCounts.total), sqrt(runningAccum.rh / runningCounts.rh), sqrt(runningAccum.lh / runningCounts.lh))
-  }
-
-  def movingVolatility(data: Queue[StatisticInputs]): Statistic = {
-    val average = movingAverage(data)    
-    val runningTotal = data.foldLeft((0.0, 0))({(x, y) => {
-      if (y.totalDenom > 0) (x._1 + pow(y.totalNumer.toDouble / y.totalDenom.toDouble - average.total, 2.0), x._2 + 1)
-      else x
-    }})   
-    val runningRH = data.foldLeft((0.0, 0))({(x, y) => {
-      if (y.rhDenom > 0) (x._1 + pow(y.rhNumer.toDouble / y.rhDenom.toDouble - average.rh, 2.0), x._2 + 1)
-      else x
-    }})   
-    val runningLH = data.foldLeft((0.0, 0))({(x, y) => {
-      if (y.lhDenom > 0) (x._1 + pow(y.lhNumer.toDouble / y.lhDenom.toDouble - average.lh, 2.0), x._2 + 1)
-      else x
-    }})
-    Statistic(sqrt(runningTotal._1 / runningTotal._2.toDouble), sqrt(runningRH._1 / runningRH._2.toDouble), sqrt(runningLH._1 / runningLH._2.toDouble))
-  }
-
-  def accum(x: Double, y: Double): Double = {
-    if (!y.isNaN) {
-      if (x.isNaN) y
-      else x + y
-    } else x
-  }
-  
-  def accumCount(x: Double, y: Double): Double = {
-    if (!y.isNaN) {
-      if (x.isNaN) 1
-      else x + 1
-    } else x
-  }
-  
   def updateFantasyScore(playOutcome: String, gameName: String, track: Statistic, facingRighty: Boolean): Statistic = {
     if (facingRighty) {
-      track.rh = track.rh + FantasyGames(gameName)(playOutcome)
+      track.rh = track.rh + FantasyGamesBatting(gameName)(playOutcome)
     } else {
-      track.lh = track.lh + FantasyGames(gameName)(playOutcome)
+      track.lh = track.lh + FantasyGamesBatting(gameName)(playOutcome)
     }
-    track.total = track.total + FantasyGames(gameName)(playOutcome)
+    track.total = track.total + FantasyGamesBatting(gameName)(playOutcome)
     track
   }
   

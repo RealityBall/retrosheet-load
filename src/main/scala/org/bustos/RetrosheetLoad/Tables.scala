@@ -10,9 +10,9 @@ object RetrosheetRecords {
 
   case class Statistic(var total: Double, var rh: Double, var lh: Double)
   case class StatisticInputs(var totalNumer: Int, var totalDenom: Int, var rhNumer: Int, var rhDenom: Int, var lhNumer: Int, var lhDenom: Int)
-  case class RunningData(ba: Queue[StatisticInputs], obp: Queue[StatisticInputs], slugging: Queue[StatisticInputs], fantasy: Map[String, Queue[Statistic]])
-  case class RunningVolatilityData(ba: Queue[StatisticInputs], obp: Queue[StatisticInputs], slugging: Queue[StatisticInputs], fantasy: Map[String, Queue[Statistic]])
-  case class RunningStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningData, volatilityData: RunningVolatilityData)
+  case class RunningHitterData(ba: Queue[StatisticInputs], obp: Queue[StatisticInputs], slugging: Queue[StatisticInputs], fantasy: Map[String, Queue[Statistic]])
+  case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, volatilityData: RunningHitterData)
+  case class RunningPitcherStatistics(fullAccum: RetrosheetPitcherDay, fantasy: Map[String, Queue[Statistic]])
   case class Team(year: String, mnemonic: String, league: String, city: String, name: String)
 
   case class BattingAverageObservation(date: String, bAvg: Double, lhBAvg: Double, rhBAvg: Double)
@@ -23,14 +23,14 @@ object RetrosheetRecords {
   case class PlayerData(meta: Player, appearances: PlayerSummary)
   case class PitcherData(meta: Player, appearances: PitcherSummary)
   
-  case class PitcherDaily(id: String, date: String, var win: Boolean, var loss: Boolean, var save: Boolean,
+  case class PitcherDaily(id: String, date: String, var win: Int, var loss: Int, var save: Int,
                           var hits: Int, var walks: Int, var hitByPitch: Int, var strikeOuts: Int, var earnedRuns: Int, var outs: Int,
                           var shutout: Boolean, var noHitter: Boolean, var pitches: Int, var balls: Int)
   
   case class Game(id: String, var homeTeam: String, var visitingTeam: String, var site: String, var date: String, var number: Int)
   case class GameConditions(id: String, var startTime: String, var  daynight: String, var usedh: Boolean, 
                             var temp: Int, var winddir: String, var windspeed: Int, var fieldcond: String, var precip: String, var sky: String)
-  case class GameScoring(var id: String, var umphome: String, var ump1b: String, var ump2b: String, var ump3b: String, var howscored: String,
+  case class GameScoring(id: String, var umphome: String, var ump1b: String, var ump2b: String, var ump3b: String, var howscored: String,
                          var timeofgame: Int, var attendance: Int, var wp: String, var lp: String, var save: String)
                          
   case class BallparkDaily(var id: String, var date: String, var RHhits: Int, var RHtotalBases: Int, var RHatBat: Int, var LHhits: Int, var LHtotalBases: Int, var LHatBat: Int)
@@ -44,6 +44,7 @@ object RetrosheetJsonProtocol extends DefaultJsonProtocol {
   implicit val playerSummaryFormat = jsonFormat4(PlayerSummary)
   implicit val pitcherSummaryFormat = jsonFormat5(PitcherSummary)
   implicit val playerDataFormat = jsonFormat2(PlayerData)
+  implicit val pitcherDataFormat = jsonFormat2(PitcherData)
 }
 
 class TeamsTable(tag: Tag) extends Table[Team](tag, "teams") {
@@ -130,9 +131,9 @@ class GameScoringTable(tag: Tag) extends Table[GameScoring](tag, "gameScoring") 
 class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily") {
   def id = column[String]("id"); def date = column[String]("date");
   
-  def win = column[Boolean]("win")
-  def loss = column[Boolean]("loss")
-  def save = column[Boolean]("save")
+  def win = column[Int]("win")
+  def loss = column[Int]("loss")
+  def save = column[Int]("save")
   def hits = column[Int]("hits")
   def walks = column[Int]("walks")
   def hitByPitch = column[Int]("hitByPitch")
@@ -236,22 +237,22 @@ class HitterStatsMovingTable(tag: Tag) extends Table[(String, String,
       Option[Double], Option[Double], Option[Double])](tag, "hitterMovingStats") {
 
   def date = column[String]("date"); def id = column[String]("id");
-  def RHbattingAverage25 = column[Option[Double]]("RHbattingAverage25")
-  def LHbattingAverage25 = column[Option[Double]]("LHbattingAverage25")
-  def battingAverage25 = column[Option[Double]]("battingAverage25")
-  def RHonBasePercentage25 = column[Option[Double]]("RHonBasePercentage25")
-  def LHonBasePercentage25 = column[Option[Double]]("LHonBasePercentage25")
-  def onBasePercentage25 = column[Option[Double]]("onBasePercentage25")
-  def RHsluggingPercentage25 = column[Option[Double]]("RHsluggingPercentage25")
-  def LHsluggingPercentage25 = column[Option[Double]]("LHsluggingPercentage25")
-  def sluggingPercentage25 = column[Option[Double]]("sluggingPercentage25")
+  def RHbattingAverageMov = column[Option[Double]]("RHbattingAverageMov")
+  def LHbattingAverageMov = column[Option[Double]]("LHbattingAverageMov")
+  def battingAverageMov = column[Option[Double]]("battingAverageMov")
+  def RHonBasePercentageMov = column[Option[Double]]("RHonBasePercentageMov")
+  def LHonBasePercentageMov = column[Option[Double]]("LHonBasePercentageMov")
+  def onBasePercentageMov = column[Option[Double]]("onBasePercentageMov")
+  def RHsluggingPercentageMov = column[Option[Double]]("RHsluggingPercentageMov")
+  def LHsluggingPercentageMov = column[Option[Double]]("LHsluggingPercentageMov")
+  def sluggingPercentageMov = column[Option[Double]]("sluggingPercentageMov")
 
   def pk = index("pk_id_date", (id, date))
       
   def * = (date, id, 
-           RHbattingAverage25, LHbattingAverage25, battingAverage25,  
-           RHonBasePercentage25, LHonBasePercentage25, onBasePercentage25, 
-           RHsluggingPercentage25, LHsluggingPercentage25, sluggingPercentage25)
+           RHbattingAverageMov, LHbattingAverageMov, battingAverageMov,  
+           RHonBasePercentageMov, LHonBasePercentageMov, onBasePercentageMov, 
+           RHsluggingPercentageMov, LHsluggingPercentageMov, sluggingPercentageMov)
 }
 
 class HitterFantasyTable(tag: Tag) extends Table[(String, String, 
@@ -284,22 +285,22 @@ class HitterFantasyMovingTable(tag: Tag) extends Table[(String, String,
       Option[Double], Option[Double], Option[Double])](tag, "hitterFantasyMovingStats") {
 
   def date = column[String]("date"); def id = column[String]("id");
-  def RHfanDuel25 = column[Option[Double]]("RHfanDuel25")
-  def LHfanDuel25 = column[Option[Double]]("LHfanDuel25")
-  def fanDuel25 = column[Option[Double]]("fanDuel25")
-  def RHdraftKings25 = column[Option[Double]]("RHdraftKings25")
-  def LHdraftKings25 = column[Option[Double]]("LHdraftKings25")
-  def draftKings25 = column[Option[Double]]("draftKings25")
-  def RHdraftster25 = column[Option[Double]]("RHdraftster25")
-  def LHdraftster25 = column[Option[Double]]("LHdraftster25")
-  def draftster25 = column[Option[Double]]("draftster25")
+  def RHfanDuelMov = column[Option[Double]]("RHfanDuelMov")
+  def LHfanDuelMov = column[Option[Double]]("LHfanDuelMov")
+  def fanDuelMov = column[Option[Double]]("fanDuelMov")
+  def RHdraftKingsMov = column[Option[Double]]("RHdraftKingsMov")
+  def LHdraftKingsMov = column[Option[Double]]("LHdraftKingsMov")
+  def draftKingsMov = column[Option[Double]]("draftKingsMov")
+  def RHdraftsterMov = column[Option[Double]]("RHdraftsterMov")
+  def LHdraftsterMov = column[Option[Double]]("LHdraftsterMov")
+  def draftsterMov = column[Option[Double]]("draftsterMov")
 
   def pk = index("pk_id_date", (id, date))
       
   def * = (date, id, 
-           RHfanDuel25, LHfanDuel25, fanDuel25,
-           RHdraftKings25, LHdraftKings25, draftKings25,
-           RHdraftster25, LHdraftster25, draftster25)
+           RHfanDuelMov, LHfanDuelMov, fanDuelMov,
+           RHdraftKingsMov, LHdraftKingsMov, draftKingsMov,
+           RHdraftsterMov, LHdraftsterMov, draftsterMov)
 }
 
 class HitterStatsVolatilityTable(tag: Tag) extends Table[(String, String, 
@@ -308,21 +309,47 @@ class HitterStatsVolatilityTable(tag: Tag) extends Table[(String, String,
       Option[Double], Option[Double], Option[Double])](tag, "hitterVolatilityStats") {
 
   def date = column[String]("date"); def id = column[String]("id");
-  def RHbattingVolatility100 = column[Option[Double]]("RHbattingVolatility100")
-  def LHbattingVolatility100 = column[Option[Double]]("LHbattingVolatility100")
-  def battingVolatility100 = column[Option[Double]]("battingVolatility100")
-  def RHonBaseVolatility100 = column[Option[Double]]("RHonBaseVolatility100")
-  def LHonBaseVolatility100 = column[Option[Double]]("LHonBaseVolatility100")
-  def onBaseVolatility100 = column[Option[Double]]("onBaseVolatility100")
-  def RHsluggingVolatility100 = column[Option[Double]]("RHsluggingVolatility100")
-  def LHsluggingVolatility100 = column[Option[Double]]("LHsluggingVolatility100")
-  def sluggingVolatility100 = column[Option[Double]]("sluggingVolatility100")
+  def RHbattingVolatility = column[Option[Double]]("RHbattingVolatility")
+  def LHbattingVolatility = column[Option[Double]]("LHbattingVolatility")
+  def battingVolatility = column[Option[Double]]("battingVolatility")
+  def RHonBaseVolatility = column[Option[Double]]("RHonBaseVolatility")
+  def LHonBaseVolatility = column[Option[Double]]("LHonBaseVolatility")
+  def onBaseVolatility = column[Option[Double]]("onBaseVolatility")
+  def RHsluggingVolatility = column[Option[Double]]("RHsluggingVolatility")
+  def LHsluggingVolatility = column[Option[Double]]("LHsluggingVolatility")
+  def sluggingVolatility = column[Option[Double]]("sluggingVolatility")
 
   def pk = index("pk_id_date", (id, date))
       
   def * = (date, id, 
-           RHbattingVolatility100, LHbattingVolatility100, battingVolatility100,  
-           RHonBaseVolatility100, LHonBaseVolatility100, onBaseVolatility100, 
-           RHsluggingVolatility100, LHsluggingVolatility100, sluggingVolatility100)
+           RHbattingVolatility, LHbattingVolatility, battingVolatility,  
+           RHonBaseVolatility, LHonBaseVolatility, onBaseVolatility, 
+           RHsluggingVolatility, LHsluggingVolatility, sluggingVolatility)
+}
+
+class PitcherFantasyTable(tag: Tag) extends Table[(String, String, 
+      Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyStats") {
+
+  def date = column[String]("date"); def id = column[String]("id");
+  def fanDuel = column[Option[Double]]("fanDuel")
+  def draftKings = column[Option[Double]]("draftKings")
+  def draftster = column[Option[Double]]("draftster")
+
+  def pk = index("pk_id_date", (id, date))
+      
+  def * = (date, id, fanDuel, draftKings, draftster)
+}
+
+class PitcherFantasyMovingTable(tag: Tag) extends Table[(String, String, 
+      Option[Double], Option[Double], Option[Double])](tag, "pitcherFantasyMovingStats") {
+
+  def date = column[String]("date"); def id = column[String]("id");
+  def fanDuelMov = column[Option[Double]]("fanDuelMov")
+  def draftKingsMov = column[Option[Double]]("draftKingsMov")
+  def draftsterMov = column[Option[Double]]("draftsterMov")
+
+  def pk = index("pk_id_date", (id, date))
+      
+  def * = (date, id, fanDuelMov, draftKingsMov, draftsterMov)
 }
 
