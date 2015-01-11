@@ -202,13 +202,13 @@ class HitterRawRHStatsTable(tag: Tag) extends Table[(String, String, Int, Int, I
     (date, id, RHatBat, RHsingle, RHdouble, RHtriple, RHhomeRun, RHRBI, RHbaseOnBalls, RHhitByPitch, RHsacFly, RHsacHit)
 }
 
-class HitterDailyStatsTable(tag: Tag) extends Table[(String, String, 
+class HitterDailyStatsTable(tag: Tag) extends Table[(String, String, Int,
       Option[Double], Option[Double], Option[Double], 
       Option[Double], Option[Double], Option[Double], 
       Option[Double], Option[Double], Option[Double], 
       Option[Double], Option[Double], Option[Double])](tag, "hitterDailyStats") {
 
-  def date = column[String]("date"); def id = column[String]("id");
+  def date = column[String]("date"); def id = column[String]("id"); def lineupPosition = column[Int]("lineupPosition");
   def RHdailyBattingAverage = column[Option[Double]]("RHdailyBattingAverage")
   def LHdailyBattingAverage = column[Option[Double]]("LHdailyBattingAverage")
   def dailyBattingAverage = column[Option[Double]]("dailyBattingAverage")
@@ -224,7 +224,7 @@ class HitterDailyStatsTable(tag: Tag) extends Table[(String, String,
 
   def pk = index("pk_id_date", (id, date)) // First game of double headers are ignored for now
       
-  def * = (date, id, 
+  def * = (date, id, lineupPosition,
            RHdailyBattingAverage, LHdailyBattingAverage, dailyBattingAverage,  
            RHbattingAverage, LHbattingAverage, battingAverage,  
            RHonBasePercentage, LHonBasePercentage, onBasePercentage, 

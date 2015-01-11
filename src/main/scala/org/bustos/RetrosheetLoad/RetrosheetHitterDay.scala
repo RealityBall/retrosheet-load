@@ -3,7 +3,7 @@ package org.bustos.RetrosheetLoad
 import FantasyScoreSheet._
 import RetrosheetRecords._
 
-class RetrosheetHitterDay(val date: String, val id: String) extends StatisticsTrait {
+class RetrosheetHitterDay(val date: String, val id: String, val lineupPosition: Int) extends StatisticsTrait {
   
   val MovingAverageAtBatWindow = 25
   val VolatilityAtBatWindow = 100

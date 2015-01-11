@@ -10,10 +10,6 @@ class RetrosheetPitcherDay(val id: String, val date: String, win: Int, loss: Int
   var fantasyScores = FantasyGamesPitching.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
   var fantasyScoresMov = FantasyGamesPitching.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
   
-  def addOuts(outs: Int) = {
-    record.outs = record.outs + outs  
-  }
-  
   def updateFantasyScore(playOutcome: String, gameName: String, track: Statistic): Statistic = {
     track.total = track.total + FantasyGamesPitching(gameName)(playOutcome)
     track
@@ -29,6 +25,7 @@ class RetrosheetPitcherDay(val id: String, val date: String, win: Int, loss: Int
   }
 
   def processPlay(play: RetrosheetPlay) = {
+    record.outs = record.outs + play.outs  
     record.pitches = record.pitches + play.pitches.length
     record.balls = record.balls + play.balls
     if (play.isSingle || play.isDouble || play.isTriple || play.isHomeRun) {
