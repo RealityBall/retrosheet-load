@@ -3,11 +3,14 @@ package org.bustos.RetrosheetLoad
 import FantasyScoreSheet._
 import RetrosheetRecords._
 
-class RetrosheetHitterDay(val date: String, val id: String, val lineupPosition: Int) extends StatisticsTrait {
+class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: Int) extends StatisticsTrait {
   
   val MovingAverageAtBatWindow = 25
   val VolatilityAtBatWindow = 100
   
+  val year = date.substring(0, 4)
+  
+  var RHplateAppearance: Int = 0
   var RHatBat: Int = 0
   var RHsingle: Int = 0
   var RHdouble: Int = 0
@@ -19,6 +22,7 @@ class RetrosheetHitterDay(val date: String, val id: String, val lineupPosition: 
   var RHsacFly: Int = 0
   var RHsacHit: Int = 0     
 
+  var LHplateAppearance: Int = 0
   var LHatBat: Int = 0
   var LHsingle: Int = 0
   var LHdouble: Int = 0
@@ -56,24 +60,51 @@ class RetrosheetHitterDay(val date: String, val id: String, val lineupPosition: 
   var fantasyScoresVolatility = FantasyGamesBatting.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
       
   def accumulate(data: RunningHitterStatistics) = {
-    data.fullAccum.LHatBat = data.fullAccum.LHatBat + LHatBat
-    data.fullAccum.RHatBat = data.fullAccum.RHatBat + RHatBat
-    data.fullAccum.LHsingle = data.fullAccum.LHsingle + LHsingle
-    data.fullAccum.RHsingle = data.fullAccum.RHsingle + RHsingle
-    data.fullAccum.LHdouble = data.fullAccum.LHdouble + LHdouble
-    data.fullAccum.RHdouble = data.fullAccum.RHdouble + RHdouble
-    data.fullAccum.LHtriple = data.fullAccum.LHtriple + LHtriple
-    data.fullAccum.RHtriple = data.fullAccum.RHtriple + RHtriple
-    data.fullAccum.LHhomeRun = data.fullAccum.LHhomeRun + LHhomeRun
-    data.fullAccum.RHhomeRun = data.fullAccum.RHhomeRun + RHhomeRun
-    data.fullAccum.LHbaseOnBalls = data.fullAccum.LHbaseOnBalls + LHbaseOnBalls
-    data.fullAccum.RHbaseOnBalls = data.fullAccum.RHbaseOnBalls + RHbaseOnBalls
-    data.fullAccum.LHhitByPitch = data.fullAccum.LHhitByPitch + LHhitByPitch
-    data.fullAccum.RHhitByPitch = data.fullAccum.RHhitByPitch + RHhitByPitch
-    data.fullAccum.LHsacFly = data.fullAccum.LHsacFly + LHsacFly
-    data.fullAccum.RHsacFly = data.fullAccum.RHsacFly + RHsacFly
-    data.fullAccum.LHsacHit = data.fullAccum.LHsacHit + LHsacHit
-    data.fullAccum.RHsacHit = data.fullAccum.RHsacHit + RHsacHit
+    
+    if (year == data.fullAccum.year) {
+      data.fullAccum.LHatBat = data.fullAccum.LHatBat + LHatBat
+      data.fullAccum.RHatBat = data.fullAccum.RHatBat + RHatBat
+      data.fullAccum.LHplateAppearance = data.fullAccum.LHplateAppearance + LHplateAppearance
+      data.fullAccum.RHplateAppearance = data.fullAccum.RHplateAppearance + RHplateAppearance
+      data.fullAccum.LHsingle = data.fullAccum.LHsingle + LHsingle
+      data.fullAccum.RHsingle = data.fullAccum.RHsingle + RHsingle
+      data.fullAccum.LHdouble = data.fullAccum.LHdouble + LHdouble
+      data.fullAccum.RHdouble = data.fullAccum.RHdouble + RHdouble
+      data.fullAccum.LHtriple = data.fullAccum.LHtriple + LHtriple
+      data.fullAccum.RHtriple = data.fullAccum.RHtriple + RHtriple
+      data.fullAccum.LHhomeRun = data.fullAccum.LHhomeRun + LHhomeRun
+      data.fullAccum.RHhomeRun = data.fullAccum.RHhomeRun + RHhomeRun
+      data.fullAccum.LHbaseOnBalls = data.fullAccum.LHbaseOnBalls + LHbaseOnBalls
+      data.fullAccum.RHbaseOnBalls = data.fullAccum.RHbaseOnBalls + RHbaseOnBalls
+      data.fullAccum.LHhitByPitch = data.fullAccum.LHhitByPitch + LHhitByPitch
+      data.fullAccum.RHhitByPitch = data.fullAccum.RHhitByPitch + RHhitByPitch
+      data.fullAccum.LHsacFly = data.fullAccum.LHsacFly + LHsacFly
+      data.fullAccum.RHsacFly = data.fullAccum.RHsacFly + RHsacFly
+      data.fullAccum.LHsacHit = data.fullAccum.LHsacHit + LHsacHit
+      data.fullAccum.RHsacHit = data.fullAccum.RHsacHit + RHsacHit
+    } else {
+      data.fullAccum.date = date
+      data.fullAccum.LHatBat = LHatBat
+      data.fullAccum.RHatBat = RHatBat
+      data.fullAccum.LHplateAppearance = LHplateAppearance
+      data.fullAccum.RHplateAppearance = RHplateAppearance
+      data.fullAccum.LHsingle = LHsingle
+      data.fullAccum.RHsingle = RHsingle
+      data.fullAccum.LHdouble = LHdouble
+      data.fullAccum.RHdouble = RHdouble
+      data.fullAccum.LHtriple = LHtriple
+      data.fullAccum.RHtriple = RHtriple
+      data.fullAccum.LHhomeRun = LHhomeRun
+      data.fullAccum.RHhomeRun = RHhomeRun
+      data.fullAccum.LHbaseOnBalls = LHbaseOnBalls
+      data.fullAccum.RHbaseOnBalls = RHbaseOnBalls
+      data.fullAccum.LHhitByPitch = LHhitByPitch
+      data.fullAccum.RHhitByPitch = RHhitByPitch
+      data.fullAccum.LHsacFly = LHsacFly
+      data.fullAccum.RHsacFly = RHsacFly
+      data.fullAccum.LHsacHit = LHsacHit
+      data.fullAccum.RHsacHit = RHsacHit
+    }
     
     val LHaccumHits: Int = data.fullAccum.LHsingle + data.fullAccum.LHdouble + data.fullAccum.LHtriple + data.fullAccum.LHhomeRun
     val RHaccumHits: Int = data.fullAccum.RHsingle + data.fullAccum.RHdouble + data.fullAccum.RHtriple + data.fullAccum.RHhomeRun
@@ -177,6 +208,8 @@ class RetrosheetHitterDay(val date: String, val id: String, val lineupPosition: 
       if (facingRighty) RHatBat = RHatBat + 1
       else LHatBat = LHatBat + 1
     }
+    RHplateAppearance = RHplateAppearance + 1
+    LHplateAppearance = LHplateAppearance + 1
     if (play.isSingle) {
       if (facingRighty) {
         RHsingle = RHsingle + 1

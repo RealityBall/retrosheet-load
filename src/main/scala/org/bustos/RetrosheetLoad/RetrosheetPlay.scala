@@ -47,11 +47,11 @@ class RetrosheetPlay (val pitchSeq: String, val play: String) {
   val isSacFly: Boolean = play.contains("SF")
   val isSacHit: Boolean = play.contains("SH")
   val outs: Int = {
-    var count = 0
-    if (isStrikeOut || isSacFly || isSacHit || play(0).isDigit) count = 1
-    if (play.contains("DP")) count = 2
-    if (play.contains("TP")) count = 3
-    count
+    if (!play.startsWith("E") && !play.contains("K+WP.B-1") && !play.contains("K+PB.B-1") && 
+        (isStrikeOut || isSacFly || isSacHit || play(0).isDigit)) 1
+    else if (play.contains("DP")) 2
+    else if (play.contains("TP")) 3
+    else 0
   }
   
   val pitches: String = {

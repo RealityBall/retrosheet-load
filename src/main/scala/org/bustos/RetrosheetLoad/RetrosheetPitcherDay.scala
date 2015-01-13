@@ -25,6 +25,9 @@ class RetrosheetPitcherDay(val id: String, val date: String, win: Int, loss: Int
   }
 
   def processPlay(play: RetrosheetPlay) = {
+    //if (id == "bumgm001" && date == "2012/08/14") {
+    //  println (play.play + " " + play.outs + " " + record.outs)
+    //}
     record.outs = record.outs + play.outs  
     record.pitches = record.pitches + play.pitches.length
     record.balls = record.balls + play.balls
