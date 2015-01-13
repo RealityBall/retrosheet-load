@@ -207,13 +207,13 @@ object RetrosheetLoad extends App {
             val currentHitterDay = hitterForDay(currentGame.game, id, 0)
             if (play.isStolenBase) {
               if (play.baseStolen == '2') {
-                if (batterSummaries.contains(runners(0))) batterSummaries(runners(0)).last.addStolenBase(play, facingRighty)  
+                if (batterSummaries.contains(runners(0))) batterSummaries(runners(0)).head.addStolenBase(play, facingRighty)  
               }
               else if (play.baseStolen == '3') {
-                if (batterSummaries.contains(runners(1))) batterSummaries(runners(1)).last.addStolenBase(play, facingRighty)
+                if (batterSummaries.contains(runners(1))) batterSummaries(runners(1)).head.addStolenBase(play, facingRighty)
               }
               else if (play.baseStolen == 'H') {
-                if (batterSummaries.contains(runners(2))) batterSummaries(runners(2)).last.addStolenBase(play, facingRighty)
+                if (batterSummaries.contains(runners(2))) batterSummaries(runners(2)).head.addStolenBase(play, facingRighty)
               }            
             }
             runners = moveRunners(id, play, runners)
@@ -264,30 +264,9 @@ object RetrosheetLoad extends App {
   def persist = {
     println("")
     var progress: Int = 0
-    pitcherSummaries.values.map {playerHistory =>
-      db.withTransaction { implicit session =>
-        progress = progress + 1
-        val sortedHistory = playerHistory.sortBy { x => x.date }
-        print(playerHistory.head.id + " [" + progress + "/" + pitcherSummaries.size + "] " + sortedHistory.length + " ")
-        print(".")
-        val pitcherDaily = sortedHistory.map(_.record)
-        print(">")
-        pitcherDailyTable ++= pitcherDaily
-        print(".")
-        val fantasyStat = sortedHistory.map({day => (day.date, day.id,
-           someOrNone(day.fantasyScores(FanDuelName).total), someOrNone(day.fantasyScores(DraftKingsName).total), someOrNone(day.fantasyScores(DraftsterName).total))})
-        print(">")
-        pitcherFantasy ++= fantasyStat
-        print(".")
-        val fantasyMovStat = sortedHistory.map({day => (day.date, day.id,
-           someOrNone(day.fantasyScoresMov(FanDuelName).total), someOrNone(day.fantasyScoresMov(DraftKingsName).total), someOrNone(day.fantasyScoresMov(DraftsterName).total))})
-        println(">")
-        pitcherFantasyMoving ++= fantasyMovStat
-      }
-    }
-    progress = 0
     batterSummaries.values.map {playerHistory =>
       db.withTransaction { implicit session =>
+
         //val playerHistory = batterSummaries("cabrm001")
         progress = progress + 1
         val sortedHistory = playerHistory.sortBy { x => x.date }
@@ -341,6 +320,28 @@ object RetrosheetLoad extends App {
         print(">")
         hitterFantasyMoving ++= fantasyMovStat
         println(".")
+      }
+    }
+    progress = 0
+    pitcherSummaries.values.map {playerHistory =>
+      db.withTransaction { implicit session =>
+        progress = progress + 1
+        val sortedHistory = playerHistory.sortBy { x => x.date }
+        print(playerHistory.head.id + " [" + progress + "/" + pitcherSummaries.size + "] " + sortedHistory.length + " ")
+        print(".")
+        val pitcherDaily = sortedHistory.map(_.record)
+        print(">")
+        pitcherDailyTable ++= pitcherDaily
+        print(".")
+        val fantasyStat = sortedHistory.map({day => (day.date, day.id,
+           someOrNone(day.fantasyScores(FanDuelName).total), someOrNone(day.fantasyScores(DraftKingsName).total), someOrNone(day.fantasyScores(DraftsterName).total))})
+        print(">")
+        pitcherFantasy ++= fantasyStat
+        print(".")
+        val fantasyMovStat = sortedHistory.map({day => (day.date, day.id,
+           someOrNone(day.fantasyScoresMov(FanDuelName).total), someOrNone(day.fantasyScoresMov(DraftKingsName).total), someOrNone(day.fantasyScoresMov(DraftsterName).total))})
+        println(">")
+        pitcherFantasyMoving ++= fantasyMovStat
       }
     }
   }
