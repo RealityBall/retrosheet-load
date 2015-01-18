@@ -3,9 +3,9 @@ package org.bustos.RetrosheetLoad
 import RetrosheetRecords.{ PitcherDaily, Statistic, RunningPitcherStatistics }
 import FantasyScoreSheet._
 
-class RetrosheetPitcherDay(val id: String, val date: String, win: Int, loss: Int, save: Int) extends StatisticsTrait {
+class RetrosheetPitcherDay(val id: String, val game: String, val date: String, opposing: String, win: Int, loss: Int, save: Int) extends StatisticsTrait {
   
-  val record = new PitcherDaily(id, date, win, loss, save, 0, 0, 0, 0, 0, 0, false, false, 0, 0) 
+  val record = new PitcherDaily(id, game, date, opposing, win, loss, save, 0, 0, 0, 0, 0, 0, false, false, 0, 0) 
 
   var fantasyScores = FantasyGamesPitching.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
   var fantasyScoresMov = FantasyGamesPitching.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap

@@ -137,7 +137,6 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
               (data.fullAccum.RHatBat + data.fullAccum.RHbaseOnBalls + data.fullAccum.RHhitByPitch + data.fullAccum.RHsacFly +
                data.fullAccum.LHatBat + data.fullAccum.LHbaseOnBalls + data.fullAccum.LHhitByPitch + data.fullAccum.LHsacFly).toDouble
     }
-    //data.fullAccum.fantasyScores = fantasyScores
     
     battingAverage = data.fullAccum.battingAverage.copy()
     onBasePercentage = data.fullAccum.onBasePercentage.copy()

@@ -23,7 +23,7 @@ object RetrosheetRecords {
   case class PlayerData(meta: Player, appearances: PlayerSummary)
   case class PitcherData(meta: Player, appearances: PitcherSummary)
   
-  case class PitcherDaily(id: String, date: String, var win: Int, var loss: Int, var save: Int,
+  case class PitcherDaily(id: String, game: String, date: String, opposing: String, var win: Int, var loss: Int, var save: Int,
                           var hits: Int, var walks: Int, var hitByPitch: Int, var strikeOuts: Int, var earnedRuns: Int, var outs: Int,
                           var shutout: Boolean, var noHitter: Boolean, var pitches: Int, var balls: Int)
   
@@ -129,7 +129,10 @@ class GameScoringTable(tag: Tag) extends Table[GameScoring](tag, "gameScoring") 
 }
 
 class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily") {
-  def id = column[String]("id"); def date = column[String]("date");
+  def id = column[String]("id"); 
+  def game = column[String]("game"); 
+  def date = column[String]("date")
+  def opposing = column[String]("opposing")
   
   def win = column[Int]("win")
   def loss = column[Int]("loss")
@@ -145,9 +148,9 @@ class PitcherDailyTable(tag: Tag) extends Table[PitcherDaily](tag, "pitcherDaily
   def pitches = column[Int]("pitches")
   def balls = column[Int]("balls")
 
-  def pk = index("pk_id_date", (id, date)) // Duplicate issue with Joaquin Benoit on 20100910
+  def pk = index("pk_id_date", (id, game)) // Duplicate issue with Joaquin Benoit on 20100910
       
-  def * = (id, date, win, loss, save, hits, walks, hitByPitch, strikeOuts, earnedRuns, outs, shutout, noHitter, pitches, balls) <> (PitcherDaily.tupled, PitcherDaily.unapply)
+  def * = (id, game, date, opposing, win, loss, save, hits, walks, hitByPitch, strikeOuts, earnedRuns, outs, shutout, noHitter, pitches, balls) <> (PitcherDaily.tupled, PitcherDaily.unapply)
 }
 
 class PlayersTable(tag: Tag) extends Table[Player](tag, "players") {

@@ -4,7 +4,7 @@ version := "1.0"
 
 scalaVersion := "2.11.4"
 
-mainClass in Compile := Some("RetrosheetLoad")
+mainClass in Compile := Some("org.bustos.RetrosheetLoad.RetrosheetLoad")
 
 libraryDependencies ++= List(
   "com.typesafe.slick" %% "slick" % "2.1.0",

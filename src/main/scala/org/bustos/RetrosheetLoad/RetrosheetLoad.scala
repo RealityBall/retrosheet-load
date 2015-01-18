@@ -10,6 +10,7 @@ import scala.util.matching.Regex
 import scala.collection.mutable.Queue
 import RetrosheetRecords._
 import FantasyScoreSheet._
+import scala.collection.parallel._
 
 object RetrosheetLoad extends App {
 
@@ -133,8 +134,10 @@ object RetrosheetLoad extends App {
     var games = List.empty[RetrosheetGameInfo]
     var ballparks = Map.empty[String, BallparkDaily]
   
-    def pitcherRecord(id: String, currentGame: RetrosheetGameInfo): RetrosheetPitcherDay = {
-      val currentPitcher = new RetrosheetPitcherDay(id, currentGame.game.date, if (currentGame.scoring.wp == id) 1 else 0, if (currentGame.scoring.lp == id) 1 else 0, if (currentGame.scoring.save == id) 1 else 0)
+    def pitcherRecord(id: String, currentGame: RetrosheetGameInfo, side: String): RetrosheetPitcherDay = {
+      val currentPitcher = new RetrosheetPitcherDay(id, currentGame.game.id, currentGame.game.date, 
+          if (side == "0") currentGame.game.homeTeam else currentGame.game.visitingTeam, 
+          if (currentGame.scoring.wp == id) 1 else 0, if (currentGame.scoring.lp == id) 1 else 0, if (currentGame.scoring.save == id) 1 else 0)
       if (!pitcherSummaries.contains(id)) pitcherSummaries += (id -> List(currentPitcher))
       else pitcherSummaries += (id -> (currentPitcher :: pitcherSummaries(id)))
       gamePitchers += (id -> currentPitcher)
@@ -178,10 +181,10 @@ object RetrosheetLoad extends App {
             ballparks(currentGame.game.id).date = currentGame.game.date
           }
           case pitcherExpression(id, name, side, lineupPosition) => {
-            currentPitchers += (side -> pitcherRecord(id, currentGame))
+            currentPitchers += (side -> pitcherRecord(id, currentGame, side))
           }
           case pitcherSubExpression(id, name, side, lineupPosition) => {
-            currentPitchers += (side -> pitcherRecord(id, currentGame))
+            currentPitchers += (side -> pitcherRecord(id, currentGame, side))
           }
           case lineupExpression(id, name, side, lineupPosition, position) => {
             val currentHitterDay = hitterForDay(currentGame.game, id, lineupPosition.toInt)
@@ -241,7 +244,8 @@ object RetrosheetLoad extends App {
   def computeStatistics = {
     println("")
     println("Computing Running Batter Statistics.")
-    batterSummaries.values.map {playerHistory =>
+    //val startTime = System.currentTimeMillis
+    batterSummaries.values.par.map {playerHistory =>
       print(".")
       val sortedHistory = playerHistory.sortBy { x => x.date }
       val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", 0)
@@ -251,11 +255,12 @@ object RetrosheetLoad extends App {
       sortedHistory.foldLeft(movingAverageData)({case (data, dailyData) => dailyData.accumulate(data); data})
     }
     println("")
+    //println(System.currentTimeMillis - startTime)
     println("Computing Running Pitcher Statistics.")
-    pitcherSummaries.values.map {playerHistory =>
+    pitcherSummaries.values.par.map {playerHistory =>
       print(".")
       val sortedHistory = playerHistory.sortBy { x => x.date }
-      val currentPitcherDay = new RetrosheetPitcherDay(sortedHistory.head.date, "", 0, 0, 0)
+      val currentPitcherDay = new RetrosheetPitcherDay(sortedHistory.head.id, "", "", "", 0, 0, 0)
       val movingAverageData = RunningPitcherStatistics(currentPitcherDay, FantasyGamesPitching.keys.map((_ -> Queue.empty[Statistic])).toMap )
       sortedHistory.foldLeft(movingAverageData)({case (data, dailyData) => dailyData.accumulate(data); data})
     }
@@ -333,12 +338,12 @@ object RetrosheetLoad extends App {
         print(">")
         pitcherDailyTable ++= pitcherDaily
         print(".")
-        val fantasyStat = sortedHistory.map({day => (day.date, day.id,
+        val fantasyStat = sortedHistory.map({day => (day.game, day.id,
            someOrNone(day.fantasyScores(FanDuelName).total), someOrNone(day.fantasyScores(DraftKingsName).total), someOrNone(day.fantasyScores(DraftsterName).total))})
         print(">")
         pitcherFantasy ++= fantasyStat
         print(".")
-        val fantasyMovStat = sortedHistory.map({day => (day.date, day.id,
+        val fantasyMovStat = sortedHistory.map({day => (day.game, day.id,
            someOrNone(day.fantasyScoresMov(FanDuelName).total), someOrNone(day.fantasyScoresMov(DraftKingsName).total), someOrNone(day.fantasyScoresMov(DraftsterName).total))})
         println(">")
         pitcherFantasyMoving ++= fantasyMovStat
