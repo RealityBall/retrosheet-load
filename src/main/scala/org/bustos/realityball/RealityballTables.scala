@@ -1,19 +1,18 @@
-package org.bustos.RetrosheetLoad
+package org.bustos.realityball
 
 import scala.slick.driver.MySQLDriver.simple._
 import scala.slick.lifted.{ProvenShape, ForeignKeyQuery}
 import spray.json._
 import DefaultJsonProtocol._
 
-object RetrosheetRecords {
+object RealityballRecords {
   import scala.collection.mutable.Queue
 
   case class Statistic(var total: Double, var rh: Double, var lh: Double)
   case class StatisticInputs(var totalNumer: Int, var totalDenom: Int, var rhNumer: Int, var rhDenom: Int, var lhNumer: Int, var lhDenom: Int)
   case class RunningHitterData(ba: Queue[StatisticInputs], obp: Queue[StatisticInputs], slugging: Queue[StatisticInputs], fantasy: Map[String, Queue[Statistic]])
-  case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, volatilityData: RunningHitterData)
-  case class RunningPitcherStatistics(fullAccum: RetrosheetPitcherDay, fantasy: Map[String, Queue[Statistic]])
   case class Team(year: String, mnemonic: String, league: String, city: String, name: String)
+  case class TeamMetaData(retrosheetId: String, site: String, zipCode: String, mlbComId: String, mlbComName: String, timeZone: String)
 
   case class BattingAverageObservation(date: String, bAvg: Double, lhBAvg: Double, rhBAvg: Double)
   
@@ -35,11 +34,29 @@ object RetrosheetRecords {
                          
   case class BallparkDaily(var id: String, var date: String, var RHhits: Int, var RHtotalBases: Int, var RHatBat: Int, var LHhits: Int, var LHtotalBases: Int, var LHatBat: Int)
   case class Ballpark(id: String, name: String, aka: String, city: String, state: String, start: String, end: String, league: String, notes: String)
+  
+  val hitterRawLH: TableQuery[HitterRawLHStatsTable] = TableQuery[HitterRawLHStatsTable]
+  val hitterRawRH: TableQuery[HitterRawRHStatsTable] = TableQuery[HitterRawRHStatsTable]
+  val hitterStats: TableQuery[HitterDailyStatsTable] = TableQuery[HitterDailyStatsTable]
+  val hitterMovingStats: TableQuery[HitterStatsMovingTable] = TableQuery[HitterStatsMovingTable]
+  val hitterFantasy: TableQuery[HitterFantasyTable] = TableQuery[HitterFantasyTable]
+  val hitterFantasyMoving: TableQuery[HitterFantasyMovingTable] = TableQuery[HitterFantasyMovingTable]
+  val pitcherFantasy: TableQuery[PitcherFantasyTable] = TableQuery[PitcherFantasyTable]
+  val pitcherFantasyMoving: TableQuery[PitcherFantasyMovingTable] = TableQuery[PitcherFantasyMovingTable]
+  val hitterVolatilityStats: TableQuery[HitterStatsVolatilityTable] = TableQuery[HitterStatsVolatilityTable]
+  val gamesTable: TableQuery[GamesTable] = TableQuery[GamesTable]
+  val ballparkDailiesTable: TableQuery[BallparkDailiesTable] = TableQuery[BallparkDailiesTable]
+  val ballparkTable: TableQuery[BallparkTable] = TableQuery[BallparkTable]
+  val gameConditionsTable: TableQuery[GameConditionsTable] = TableQuery[GameConditionsTable]
+  val gameScoringTable: TableQuery[GameScoringTable] = TableQuery[GameScoringTable]
+  val teamsTable: TableQuery[TeamsTable] = TableQuery[TeamsTable]
+  val playersTable: TableQuery[PlayersTable] = TableQuery[PlayersTable]
+  val pitcherDailyTable: TableQuery[PitcherDailyTable] = TableQuery[PitcherDailyTable]
 }
 
-import RetrosheetRecords._
-object RetrosheetJsonProtocol extends DefaultJsonProtocol {
-  import RetrosheetRecords._
+import RealityballRecords._
+object RealityballJsonProtocol extends DefaultJsonProtocol {
+  import RealityballRecords._
   implicit val playerFormat = jsonFormat8(Player)
   implicit val playerSummaryFormat = jsonFormat4(PlayerSummary)
   implicit val pitcherSummaryFormat = jsonFormat5(PitcherSummary)

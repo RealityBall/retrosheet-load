@@ -1,4 +1,4 @@
-package org.bustos.RetrosheetLoad
+package org.bustos.realityball
 
 object FantasyScoreSheet {
   

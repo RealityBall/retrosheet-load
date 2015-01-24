@@ -1,9 +1,18 @@
-package org.bustos.RetrosheetLoad
+package org.bustos.realityball
 
-import RetrosheetRecords.{ PitcherDaily, Statistic, RunningPitcherStatistics }
+import RealityballRecords.{ PitcherDaily, Statistic }
 import FantasyScoreSheet._
 
+object RetrosheetPitcherDay {
+  
+  import scala.collection.mutable.Queue
+
+  case class RunningPitcherStatistics(fullAccum: RetrosheetPitcherDay, fantasy: Map[String, Queue[Statistic]])
+}
+
 class RetrosheetPitcherDay(val id: String, val game: String, val date: String, opposing: String, win: Int, loss: Int, save: Int) extends StatisticsTrait {
+
+  import RetrosheetPitcherDay._
   
   val record = new PitcherDaily(id, game, date, opposing, win, loss, save, 0, 0, 0, 0, 0, 0, false, false, 0, 0) 
 

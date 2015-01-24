@@ -1,8 +1,10 @@
-package org.bustos.RetrosheetLoad
+package org.bustos.realityball
+
+import org.bustos.realityball.RealityballRecords._
 
 import scala.collection.mutable.Queue
 import scala.math.{ pow, sqrt }
-import RetrosheetRecords._
+import RealityballRecords._
 
 trait StatisticsTrait {
 

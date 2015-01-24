@@ -1,20 +1,25 @@
-package org.bustos.RetrosheetLoad
+package org.bustos.realityball
 
 import scala.slick.driver.MySQLDriver.simple._
 import scala.slick.jdbc.meta.MTable
 import scala.slick.lifted.AbstractTable
-import scala.util.Properties.envOrNone
-import java.io.File
-import scala.io.Source
 import scala.util.matching.Regex
-import scala.collection.mutable.Queue
-import RetrosheetRecords._
-import FantasyScoreSheet._
+import scala.io.Source
 import scala.collection.parallel._
+import java.io.File
+import org.slf4j.LoggerFactory
+import RealityballRecords._
+import RetrosheetHitterDay._
+import RetrosheetPitcherDay._
+import RealityballConfig._
+import FantasyScoreSheet._
 
 object RetrosheetLoad extends App {
 
   import scala.collection.mutable.MutableList
+  import scala.collection.mutable.Queue
+  
+  val logger =  LoggerFactory.getLogger(getClass)
   
   val gameIdExpression: Regex = "id,(.*)".r
   val gameInfoExpression: Regex = "info,(.*)".r
@@ -26,30 +31,6 @@ object RetrosheetLoad extends App {
   val teamExpression: Regex = "(.*),(.*),(.*),(.*)".r
   val erExpression: Regex = "data,er,(.*),(.*)".r
   val ballparkExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)".r
-  val mysqlURL = envOrNone("MLB_MYSQL_URL").get
-  val mysqlUser = envOrNone("MLB_MYSQL_USER").get
-  val mysqlPassword = envOrNone("MLB_MYSQL_PASSWORD").get
-  val db = Database.forURL("jdbc:mysql://localhost:3306/mlbretrosheet", driver="com.mysql.jdbc.Driver", user="root", password="")
-  val DataRoot = "/Users/mauricio/Google Drive/Projects/fantasySports/retrosheetData/"
-  //val db = Database.forURL(mysqlURL, driver="com.mysql.jdbc.Driver", user=mysqlUser, password=mysqlPassword)
-  
-  val hitterRawLH: TableQuery[HitterRawLHStatsTable] = TableQuery[HitterRawLHStatsTable]
-  val hitterRawRH: TableQuery[HitterRawRHStatsTable] = TableQuery[HitterRawRHStatsTable]
-  val hitterStats: TableQuery[HitterDailyStatsTable] = TableQuery[HitterDailyStatsTable]
-  val hitterMovingStats: TableQuery[HitterStatsMovingTable] = TableQuery[HitterStatsMovingTable]
-  val hitterFantasy: TableQuery[HitterFantasyTable] = TableQuery[HitterFantasyTable]
-  val hitterFantasyMoving: TableQuery[HitterFantasyMovingTable] = TableQuery[HitterFantasyMovingTable]
-  val pitcherFantasy: TableQuery[PitcherFantasyTable] = TableQuery[PitcherFantasyTable]
-  val pitcherFantasyMoving: TableQuery[PitcherFantasyMovingTable] = TableQuery[PitcherFantasyMovingTable]
-  val hitterVolatilityStats: TableQuery[HitterStatsVolatilityTable] = TableQuery[HitterStatsVolatilityTable]
-  val gamesTable: TableQuery[GamesTable] = TableQuery[GamesTable]
-  val ballparkDailiesTable: TableQuery[BallparkDailiesTable] = TableQuery[BallparkDailiesTable]
-  val ballparkTable: TableQuery[BallparkTable] = TableQuery[BallparkTable]
-  val gameConditionsTable: TableQuery[GameConditionsTable] = TableQuery[GameConditionsTable]
-  val gameScoringTable: TableQuery[GameScoringTable] = TableQuery[GameScoringTable]
-  val teamsTable: TableQuery[TeamsTable] = TableQuery[TeamsTable]
-  val playersTable: TableQuery[PlayersTable] = TableQuery[PlayersTable]
-  val pitcherDailyTable: TableQuery[PitcherDailyTable] = TableQuery[PitcherDailyTable]
   
   val tables: Map[String, TableQuery[_ <: slick.driver.MySQLDriver.Table[_]]] = Map (
       ("hitterRawLHstats" -> hitterRawLH), ("hitterRawRHstats" -> hitterRawRH), ("hitterDailyStats" -> hitterStats),
@@ -89,7 +70,7 @@ object RetrosheetLoad extends App {
   }
   
   def processBallparks = {
-    println("Updating ballpark codes...")
+    logger.info("Updating ballpark codes...")
     val ballparkFile = new File(DataRoot + "parkcode.txt")
     db.withSession { implicit session =>
       Source.fromFile(ballparkFile).getLines.foreach { line => 
@@ -102,7 +83,7 @@ object RetrosheetLoad extends App {
   }
 
   def processTeams(year: String) = {
-    println("Teams for " + year)
+    logger.info("Teams for " + year)
     val teamFile = new File(DataRoot + year + "eve/TEAM" + year)
     db.withTransaction { implicit session =>
       Source.fromFile(teamFile).getLines.foreach {
@@ -157,7 +138,7 @@ object RetrosheetLoad extends App {
   
     eventFiles.map {f =>
       println("")
-      println(f.getName + " - ")
+      logger.info(f.getName + " - ")
       var currentGame: RetrosheetGameInfo = null
       var currentBallpark: BallparkDaily = null
       var currentPitchers = Map.empty[String, RetrosheetPitcherDay] // 0: Away, 1: Home
@@ -228,22 +209,21 @@ object RetrosheetLoad extends App {
       }
     }
     db.withTransaction { implicit session =>
-      println("Games for " + year)
+      logger.info("Games for " + year)
       gamesTable ++= games.map(_.game)
-      println("Game Conditions for " + year)
+      logger.info("Game Conditions for " + year)
       gameConditionsTable ++= games.map(_.conditions)
-      println("Game Scoring for " + year)
+      logger.info("Game Scoring for " + year)
       gameScoringTable ++= games.map(_.scoring)
-      println("Players for " + year)
+      logger.info("Players for " + year)
       playersTable ++= players.values.map({player => Player(player.id, year, player.lastName, player.firstName, player.batsWith, player.throwsWith, player.team, player.position)})
-      println("Ballpark dailies for " + year)
+      logger.info("Ballpark dailies for " + year)
       ballparkDailiesTable ++= ballparks.values
     }
   }
   
   def computeStatistics = {
-    println("")
-    println("Computing Running Batter Statistics.")
+    logger.info("Computing Running Batter Statistics.")
     //val startTime = System.currentTimeMillis
     batterSummaries.values.par.map {playerHistory =>
       print(".")
@@ -254,9 +234,8 @@ object RetrosheetLoad extends App {
                                 RunningHitterData(Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap ))
       sortedHistory.foldLeft(movingAverageData)({case (data, dailyData) => dailyData.accumulate(data); data})
     }
-    println("")
     //println(System.currentTimeMillis - startTime)
-    println("Computing Running Pitcher Statistics.")
+    logger.info("Computing Running Pitcher Statistics.")
     pitcherSummaries.values.par.map {playerHistory =>
       print(".")
       val sortedHistory = playerHistory.sortBy { x => x.date }

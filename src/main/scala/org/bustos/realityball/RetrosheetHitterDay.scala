@@ -1,9 +1,15 @@
-package org.bustos.RetrosheetLoad
+package org.bustos.realityball
 
 import FantasyScoreSheet._
-import RetrosheetRecords._
+import RealityballRecords._
+
+object RetrosheetHitterDay {
+  case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, volatilityData: RunningHitterData)  
+}
 
 class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: Int) extends StatisticsTrait {
+  
+  import RetrosheetHitterDay._
   
   val MovingAverageAtBatWindow = 25
   val VolatilityAtBatWindow = 100
