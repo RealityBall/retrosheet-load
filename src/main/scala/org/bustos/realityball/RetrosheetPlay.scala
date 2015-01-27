@@ -19,7 +19,7 @@ object RetrosheetPlay {
   R  foul ball on pitchout
   S  swinging strike
   T  foul tip
-  U  unknown or missed pitch
+  U  unknown or missed pitch  
   V  called ball because pitcher went to his mouth
   X  ball put into play by batter
   Y  ball put into play on pitchout
