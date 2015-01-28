@@ -175,12 +175,14 @@ object RetrosheetLoad extends App {
             pitcherRecord.record.earnedRuns = earnedRuns.toInt
           }
           case playExpression(inning, side, id, count, pitches, playString) => {
+            //            if (id == "cabrm001" && currentGame.game.id == "LAN201404090") {
+            //              println("")
+            //            }
             if (inning.toInt != currentInning || side.toInt != currentSide) {
               currentInning = inning.toInt
               currentSide = side.toInt
               runners = List("        ", "        ", "        ")
             }
-            //if (playString.contains(".")) print("inning: " + inning + " ")
             val play = new RetrosheetPlay(pitches, playString)
             if (currentSide == 0) {
               currentPitchers("1").processPlay(play)
@@ -189,13 +191,20 @@ object RetrosheetLoad extends App {
             }
             val facingRighty = (side == "0" && players(currentPitchers("1").id).throwsWith == "R") || (side == "1" && players(currentPitchers("0").id).throwsWith == "R")
             val currentHitterDay = hitterForDay(currentGame.game, id, 0)
+            if (play.runsScored) {
+              play.scoringRunners.map({
+                case (runner, result) => {
+                  if (runner != "B" && batterSummaries.contains(runners(runner.toInt - 1))) batterSummaries(runners(runner.toInt - 1)).head.addRun(facingRighty)
+                }
+              })
+            }
             if (play.isStolenBase) {
               if (play.baseStolen == '2') {
-                if (batterSummaries.contains(runners(0))) batterSummaries(runners(0)).head.addStolenBase(play, facingRighty)
+                if (batterSummaries.contains(runners(0))) batterSummaries(runners(0)).head.addStolenBase(facingRighty)
               } else if (play.baseStolen == '3') {
-                if (batterSummaries.contains(runners(1))) batterSummaries(runners(1)).head.addStolenBase(play, facingRighty)
+                if (batterSummaries.contains(runners(1))) batterSummaries(runners(1)).head.addStolenBase(facingRighty)
               } else if (play.baseStolen == 'H') {
-                if (batterSummaries.contains(runners(2))) batterSummaries(runners(2)).head.addStolenBase(play, facingRighty)
+                if (batterSummaries.contains(runners(2))) batterSummaries(runners(2)).head.addStolenBase(facingRighty)
               }
             }
             runners = moveRunners(id, play, runners)
@@ -256,7 +265,7 @@ object RetrosheetLoad extends App {
         print(".")
         val rawLH = sortedHistory.map({ day =>
           (day.date, day.id,
-            day.LHatBat, day.LHsingle, day.LHdouble, day.LHtriple, day.LHhomeRun, day.LHRBI,
+            day.LHatBat, day.LHsingle, day.LHdouble, day.LHtriple, day.LHhomeRun, day.LHRBI, day.LHruns,
             day.LHbaseOnBalls, day.LHhitByPitch, day.LHsacFly, day.LHsacHit)
         })
         print(">")
@@ -264,7 +273,7 @@ object RetrosheetLoad extends App {
         print(".")
         val rawRH = sortedHistory.map({ day =>
           (day.date, day.id,
-            day.RHatBat, day.RHsingle, day.RHdouble, day.RHtriple, day.RHhomeRun, day.RHRBI,
+            day.RHatBat, day.RHsingle, day.RHdouble, day.RHtriple, day.RHhomeRun, day.RHRBI, day.RHruns,
             day.RHbaseOnBalls, day.RHhitByPitch, day.RHsacFly, day.RHsacHit)
         })
         print(">")
@@ -330,14 +339,14 @@ object RetrosheetLoad extends App {
         pitcherDailyTable ++= pitcherDaily
         print(".")
         val fantasyStat = sortedHistory.map({ day =>
-          (day.game, day.id,
+          (day.date, day.id,
             someOrNone(day.fantasyScores(FanDuelName).total), someOrNone(day.fantasyScores(DraftKingsName).total), someOrNone(day.fantasyScores(DraftsterName).total))
         })
         print(">")
         pitcherFantasy ++= fantasyStat
         print(".")
         val fantasyMovStat = sortedHistory.map({ day =>
-          (day.game, day.id,
+          (day.date, day.id,
             someOrNone(day.fantasyScoresMov(FanDuelName).total), someOrNone(day.fantasyScoresMov(DraftKingsName).total), someOrNone(day.fantasyScoresMov(DraftsterName).total))
         })
         println(">")

@@ -1,9 +1,9 @@
 package org.bustos.realityball
 
 object RetrosheetPlay {
-/*
+  /*
  * Retrosheet pitch characters
- *  
+ *
   B  ball
   C  called strike
   F  foul
@@ -19,26 +19,26 @@ object RetrosheetPlay {
   R  foul ball on pitchout
   S  swinging strike
   T  foul tip
-  U  unknown or missed pitch  
+  U  unknown or missed pitch
   V  called ball because pitcher went to his mouth
   X  ball put into play by batter
   Y  ball put into play on pitchout
 */
 
-  val ballType = List('B', 'I', 'V', 'P')  
+  val ballType = List('B', 'I', 'V', 'P')
 }
 
-class RetrosheetPlay (val pitchSeq: String, val play: String) {
+class RetrosheetPlay(val pitchSeq: String, val play: String) {
 
   import RetrosheetPlay._
-  
+
   val isStolenBase: Boolean = play.startsWith("SB")
   val baseStolen: Char = {
     if (isStolenBase) play(2)
     else ' '
   }
   val isSingle: Boolean = play.startsWith("S") && !play.startsWith("SB")
-  val isDouble: Boolean = play.startsWith("D")  && !play.startsWith("DI") // DI: Defensive indifference, runners may advance
+  val isDouble: Boolean = play.startsWith("D") && !play.startsWith("DI") // DI: Defensive indifference, runners may advance
   val isTriple: Boolean = play.startsWith("T")
   val isHomeRun: Boolean = play.startsWith("HR")
   val isStrikeOut: Boolean = play.startsWith("K")
@@ -47,28 +47,28 @@ class RetrosheetPlay (val pitchSeq: String, val play: String) {
   val isSacFly: Boolean = play.contains("SF")
   val isSacHit: Boolean = play.contains("SH")
   val outs: Int = {
-    if (!play.startsWith("E") && !play.contains("K+WP.B-1") && !play.contains("K+PB.B-1") && 
-        (isStrikeOut || isSacFly || isSacHit || play(0).isDigit)) 1
+    if (!play.startsWith("E") && !play.contains("K+WP.B-1") && !play.contains("K+PB.B-1") &&
+      (isStrikeOut || isSacFly || isSacHit || play(0).isDigit)) 1
     else if (play.contains("DP")) 2
     else if (play.contains("TP")) 3
     else 0
   }
-  
+
   val pitches: String = {
-    if (pitchSeq.contains(".")) pitchSeq.substring(pitchSeq.lastIndexOf(".")).filter(x => {!x.isDigit && x != '*' && x != '.' && x != '>'})
-    else pitchSeq.filter(x => {!x.isDigit && x != '*' && x != '.' && x != '>'})
+    if (pitchSeq.contains(".")) pitchSeq.substring(pitchSeq.lastIndexOf(".")).filter(x => { !x.isDigit && x != '*' && x != '.' && x != '>' })
+    else pitchSeq.filter(x => { !x.isDigit && x != '*' && x != '.' && x != '>' })
   }
   val pitchesByType = pitches.groupBy({ x => x })
-  val balls: Int = ballType.foldLeft(0)({(x, y) => x + (if (pitchesByType.contains(y)) pitchesByType(y).length else 0)})
+  val balls: Int = ballType.foldLeft(0)({ (x, y) => x + (if (pitchesByType.contains(y)) pitchesByType(y).length else 0) })
 
   val advancements: List[(String, String)] = {
     if (play.contains(".")) {
-      val moves = play split("""\.""") tail
-      val resultingMoves = moves map {_.split(";")} flatMap {x => x} filter {_.contains("-")} map {_.split("-")} map {x => (x(0) -> x(1)(0).toString)}
+      val moves = play split ("""\.""") tail
+      val resultingMoves = moves map { _.split(";") } flatMap { x => x } filter { _.contains("-") } map { _.split("-") } map { x => (x(0) -> x(1)(0).toString) }
       resultingMoves.toList.sortWith((x, y) => y._2 < x._2 || x._2 == "B")
     } else List()
   }
-  
+
   val resultingPosition: Int = {
     if (isSingle || isBaseOnBalls || isHitByPitch) 1
     else if (isDouble) 2
@@ -81,13 +81,32 @@ class RetrosheetPlay (val pitchSeq: String, val play: String) {
   }
 
   val rbis: Int = {
-    if (!isStolenBase) advancements.filter(x => x._2 == "H").size
+    if (!isStolenBase) advancements.filter(x => x._2 == "H").size + { if (isHomeRun) 1 else 0 }
     else 0
   }
 
-   val atBat: Boolean = !play.contains("SH") && !play.contains("SF") && 
-                        !play.startsWith("W") && !play.startsWith("WP") && 
-                        !play.startsWith("IW") && !play.startsWith("HP") && 
-                        !play.startsWith("NP") && !play.startsWith("DI") && !play.startsWith("BK")
+  val scoringRunners: List[(String, String)] = {
+    advancements.filter(x => x._2 == "H")
+  }
+
+  val runsScored: Boolean = !scoringRunners.isEmpty
+
+  val atBat: Boolean = !play.contains("SH") && !play.contains("SF") &&
+    !play.startsWith("W") && !play.startsWith("WP") &&
+    !play.startsWith("IW") && !play.startsWith("HP") &&
+    !play.startsWith("NP") && !play.startsWith("DI") &&
+    !play.startsWith("BK") && !play.startsWith("SB") &&
+    !play.startsWith("PO")
+  // SH  Sacrifice Hit
+  // SF  Sacrifice Fly
+  // W   Walk
+  // WP  Wild Pitch
+  // IW  Intentional Walk
+  // HP  Hit By Pith
+  // NP  No Pitch (usually means substitution)
+  // DI  Defensive Indifference
+  // BK  Balk
+  // SB  Stolen Base
+  // PO  Picked off runner
 
 }
