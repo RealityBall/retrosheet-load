@@ -23,8 +23,57 @@ object RetrosheetPlay {
   V  called ball because pitcher went to his mouth
   X  ball put into play by batter
   Y  ball put into play on pitchout
-*/
-
+  *
+  * Retrosheet play descriptors
+  *
+  AP    appeal play
+  BP    pop up bunt
+  BG    ground ball bunt
+  BGDP  bunt grounded into double play
+  BINT  batter interference
+  BL    line drive bunt
+  BOOT  batting out of turn
+  BP    bunt pop up
+  BPDP  bunt popped into double play
+  BR    runner hit by batted ball
+  C     called third strike
+  COUB  courtesy batter
+  COUF  courtesy fielder
+  COUR  courtesy runner
+  DP    unspecified double play
+  E$    error on $
+  F     fly
+  FDP   fly ball double play
+  FINT  fan interference
+  FL    foul
+  FO    force out
+  G     ground ball
+  GDP   ground ball double play
+  GTP   ground ball triple play
+  IF    infield fly rule
+  INT   interference
+  IPHR  inside the park home run
+  L     line drive
+  LDP   lined into double play
+  LTP   lined into triple play
+  MREV  manager challenge of call on the field
+  NDP   no double play credited for this play
+  OBS   obstruction (fielder obstructing a runner)
+  P     pop fly
+  PASS  a runner passed another runner and was called out
+  R$    relay throw from the initial fielder to $ with no out made
+  RINT  runner interference
+  SF    sacrifice fly
+  SH    sacrifice hit (bunt)
+  TH    throw
+  TH%   throw to base %
+  TP    unspecified triple play
+  UINT  umpire interference
+  UREV  umpire review of call on the field
+  *
+  */
+  val groundOutType = List("/BG", "/G", "/SH")
+  val flyOutType = List("/BP", "/BL", "/BP", "/F", "/L", "/P", "/SF")
   val ballType = List('B', 'I', 'V', 'P')
 }
 
@@ -46,12 +95,21 @@ class RetrosheetPlay(val pitchSeq: String, val play: String) {
   val isHitByPitch: Boolean = play.startsWith("HP")
   val isSacFly: Boolean = play.contains("SF")
   val isSacHit: Boolean = play.contains("SH")
+
   val outs: Int = {
     if (!play.startsWith("E") && !play.contains("K+WP.B-1") && !play.contains("K+PB.B-1") &&
       (isStrikeOut || isSacFly || isSacHit || play(0).isDigit)) 1
     else if (play.contains("DP")) 2
     else if (play.contains("TP")) 3
     else 0
+  }
+
+  val isGroundOut: Boolean = {
+    outs > 0 && groundOutType.exists { play.contains(_) }
+  }
+
+  val isFlyOut: Boolean = {
+    outs > 0 && flyOutType.exists { x => play.contains(x) } && !play.contains("/FO/G")
   }
 
   val pitches: String = {
