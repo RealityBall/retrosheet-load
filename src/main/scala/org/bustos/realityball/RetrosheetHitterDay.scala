@@ -7,7 +7,7 @@ object RetrosheetHitterDay {
   case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, volatilityData: RunningHitterData)
 }
 
-class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: Int) extends StatisticsTrait {
+class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: Int, val gameId: String, val side: Int) extends StatisticsTrait {
 
   import RetrosheetHitterDay._
 

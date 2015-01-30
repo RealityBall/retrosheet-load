@@ -29,6 +29,7 @@ object RetrosheetLoad extends App {
   val playExpression: Regex = "play,(.*),(.*),(.*),(.*),(.*),(.*)".r
   val playerRoster: Regex = "(.*),(.*),(.*),([BRL]),([BRL]),(.*),(.*)".r
   val teamExpression: Regex = "(.*),(.*),(.*),(.*)".r
+  val teamMetaExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*)".r
   val erExpression: Regex = "data,er,(.*),(.*)".r
 
   val tables: Map[String, TableQuery[_ <: slick.driver.MySQLDriver.Table[_]]] = Map(
@@ -84,10 +85,19 @@ object RetrosheetLoad extends App {
   def processTeams(year: String) = {
     logger.info("Teams for " + year)
     val teamFile = new File(DataRoot + "retrosheet/" + year + "eve/TEAM" + year)
+    val teamMetaFile = new File(DataRoot + "generatedData/teamMetaData.csv")
+    val metaData: Map[String, (String, String, String, String, String)] = {
+      Source.fromFile(teamMetaFile).getLines.map {
+        _ match {
+          case teamMetaExpression(retrosheetId, site, zipCode, mlbComId, mlbComName, timeZone) => (retrosheetId -> (site, zipCode, mlbComId, mlbComName, timeZone))
+          case _ => ("" -> ("", "", "", "", ""))
+        }
+      }.toMap
+    }
     db.withTransaction { implicit session =>
       Source.fromFile(teamFile).getLines.foreach {
         _ match {
-          case teamExpression(mnemonic, league, city, name) => teamsTable += Team(year, mnemonic, league, city, name)
+          case teamExpression(mnemonic, league, city, name) => teamsTable += Team(year, mnemonic, league, city, name, metaData(mnemonic)._1, metaData(mnemonic)._2, metaData(mnemonic)._3, metaData(mnemonic)._4, metaData(mnemonic)._5)
           case _ =>
         }
       }
@@ -125,10 +135,10 @@ object RetrosheetLoad extends App {
       currentPitcher
     }
 
-    def hitterForDay(game: Game, id: String, lineupPosition: Int): RetrosheetHitterDay = {
-      if (!batterSummaries.contains(id)) batterSummaries += (id -> List(new RetrosheetHitterDay(game.date, id, lineupPosition)))
+    def hitterForDay(game: Game, id: String, lineupPosition: Int, side: Int): RetrosheetHitterDay = {
+      if (!batterSummaries.contains(id)) batterSummaries += (id -> List(new RetrosheetHitterDay(game.date, id, lineupPosition, game.id, side)))
       if (batterSummaries(id).head.date != game.date) {
-        batterSummaries += (id -> (new RetrosheetHitterDay(game.date, id, lineupPosition) :: batterSummaries(id)))
+        batterSummaries += (id -> (new RetrosheetHitterDay(game.date, id, lineupPosition, game.id, side) :: batterSummaries(id)))
       }
       batterSummaries(id).head
     }
@@ -158,7 +168,7 @@ object RetrosheetLoad extends App {
           }
           case gameInfoExpression(data) => {
             currentGame.processInfoRecord(line)
-            ballparks(currentGame.game.id).id = currentGame.game.site
+            ballparks(currentGame.game.id).id = currentGame.game.id
             ballparks(currentGame.game.id).date = currentGame.game.date
           }
           case pitcherExpression(id, name, side, lineupPosition) => {
@@ -168,7 +178,7 @@ object RetrosheetLoad extends App {
             currentPitchers += (side -> pitcherRecord(id, currentGame, side))
           }
           case lineupExpression(id, name, side, lineupPosition, position) => {
-            val currentHitterDay = hitterForDay(currentGame.game, id, lineupPosition.toInt)
+            val currentHitterDay = hitterForDay(currentGame.game, id, lineupPosition.toInt, side.toInt)
           }
           case erExpression(id, earnedRuns) => {
             val pitcherRecord = gamePitchers(id)
@@ -190,7 +200,7 @@ object RetrosheetLoad extends App {
               currentPitchers("0").processPlay(play)
             }
             val facingRighty = (side == "0" && players(currentPitchers("1").id).throwsWith == "R") || (side == "1" && players(currentPitchers("0").id).throwsWith == "R")
-            val currentHitterDay = hitterForDay(currentGame.game, id, 0)
+            val currentHitterDay = hitterForDay(currentGame.game, id, 0, side.toInt)
             if (play.runsScored) {
               play.scoringRunners.map({
                 case (runner, result) => {
@@ -235,7 +245,7 @@ object RetrosheetLoad extends App {
     batterSummaries.values.par.map { playerHistory =>
       print(".")
       val sortedHistory = playerHistory.sortBy { x => x.date }
-      val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", 0)
+      val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", 0, "", 0)
       val movingAverageData = RunningHitterStatistics(currentHitterDay,
         RunningHitterData(Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap),
         RunningHitterData(Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap))
@@ -264,7 +274,7 @@ object RetrosheetLoad extends App {
         print(playerHistory.head.id + " [" + progress + "/" + batterSummaries.size + "] " + sortedHistory.length + " ")
         print(".")
         val rawLH = sortedHistory.map({ day =>
-          (day.date, day.id,
+          (day.date, day.id, day.gameId, day.side,
             day.LHatBat, day.LHsingle, day.LHdouble, day.LHtriple, day.LHhomeRun, day.LHRBI, day.LHruns,
             day.LHbaseOnBalls, day.LHhitByPitch, day.LHsacFly, day.LHsacHit)
         })
@@ -272,7 +282,7 @@ object RetrosheetLoad extends App {
         hitterRawLH ++= rawLH
         print(".")
         val rawRH = sortedHistory.map({ day =>
-          (day.date, day.id,
+          (day.date, day.id, day.gameId, day.side,
             day.RHatBat, day.RHsingle, day.RHdouble, day.RHtriple, day.RHhomeRun, day.RHRBI, day.RHruns,
             day.RHbaseOnBalls, day.RHhitByPitch, day.RHsacFly, day.RHsacHit)
         })
@@ -280,7 +290,7 @@ object RetrosheetLoad extends App {
         hitterRawRH ++= rawRH
         print(".")
         val hStat = sortedHistory.map({ day =>
-          (day.date, day.id, day.lineupPosition, day.RHatBat + day.LHatBat, day.RHplateAppearance + day.LHplateAppearance,
+          (day.date, day.id, day.gameId, day.side, day.lineupPosition, day.RHatBat + day.LHatBat, day.RHplateAppearance + day.LHplateAppearance,
             someOrNone(day.dailyBattingAverage.rh), someOrNone(day.dailyBattingAverage.lh), someOrNone(day.dailyBattingAverage.total),
             someOrNone(day.battingAverage.rh), someOrNone(day.battingAverage.lh), someOrNone(day.battingAverage.total),
             someOrNone(day.onBasePercentage.rh), someOrNone(day.onBasePercentage.lh), someOrNone(day.onBasePercentage.total),
@@ -308,7 +318,7 @@ object RetrosheetLoad extends App {
         hitterVolatilityStats ++= volStat
         print(".")
         val fantasyStat = sortedHistory.map({ day =>
-          (day.date, day.id,
+          (day.date, day.id, day.gameId, day.side,
             someOrNone(day.fantasyScores(FanDuelName).rh), someOrNone(day.fantasyScores(FanDuelName).lh), someOrNone(day.fantasyScores(FanDuelName).total),
             someOrNone(day.fantasyScores(DraftKingsName).rh), someOrNone(day.fantasyScores(DraftKingsName).lh), someOrNone(day.fantasyScores(DraftKingsName).total),
             someOrNone(day.fantasyScores(DraftsterName).rh), someOrNone(day.fantasyScores(DraftsterName).lh), someOrNone(day.fantasyScores(DraftsterName).total))
