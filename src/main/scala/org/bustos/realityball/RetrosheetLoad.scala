@@ -29,7 +29,7 @@ object RetrosheetLoad extends App {
   val playExpression: Regex = "play,(.*),(.*),(.*),(.*),(.*),(.*)".r
   val playerRoster: Regex = "(.*),(.*),(.*),([BRL]),([BRL]),(.*),(.*)".r
   val teamExpression: Regex = "(.*),(.*),(.*),(.*)".r
-  val teamMetaExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*)".r
+  val teamMetaExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)".r
   val erExpression: Regex = "data,er,(.*),(.*)".r
 
   val tables: Map[String, TableQuery[_ <: slick.driver.MySQLDriver.Table[_]]] = Map(
@@ -86,18 +86,19 @@ object RetrosheetLoad extends App {
     logger.info("Teams for " + year)
     val teamFile = new File(DataRoot + "retrosheet/" + year + "eve/TEAM" + year)
     val teamMetaFile = new File(DataRoot + "generatedData/teamMetaData.csv")
-    val metaData: Map[String, (String, String, String, String, String)] = {
+    val metaData: Map[String, (String, String, String, String, String, String, String)] = {
       Source.fromFile(teamMetaFile).getLines.map {
         _ match {
-          case teamMetaExpression(retrosheetId, site, zipCode, mlbComId, mlbComName, timeZone) => (retrosheetId -> (site, zipCode, mlbComId, mlbComName, timeZone))
-          case _ => ("" -> ("", "", "", "", ""))
+          case teamMetaExpression(retrosheetId, site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName) => (retrosheetId -> (site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName))
+          case _ => ("" -> ("", "", "", "", "", "", ""))
         }
       }.toMap
     }
     db.withTransaction { implicit session =>
       Source.fromFile(teamFile).getLines.foreach {
         _ match {
-          case teamExpression(mnemonic, league, city, name) => teamsTable += Team(year, mnemonic, league, city, name, metaData(mnemonic)._1, metaData(mnemonic)._2, metaData(mnemonic)._3, metaData(mnemonic)._4, metaData(mnemonic)._5)
+          case teamExpression(mnemonic, league, city, name) => teamsTable += Team(year, mnemonic, league, city, name, metaData(mnemonic)._1, metaData(mnemonic)._2, metaData(mnemonic)._3,
+            metaData(mnemonic)._4, metaData(mnemonic)._5, metaData(mnemonic)._6, metaData(mnemonic)._7)
           case _ =>
         }
       }
