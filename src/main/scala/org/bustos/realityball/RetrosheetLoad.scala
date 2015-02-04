@@ -1,5 +1,6 @@
 package org.bustos.realityball
 
+import org.joda.time._
 import scala.slick.driver.MySQLDriver.simple._
 import scala.slick.jdbc.meta.MTable
 import scala.slick.lifted.AbstractTable
@@ -120,6 +121,10 @@ object RetrosheetLoad extends App {
     players
   }
 
+  def dateFromString(dateString: String): DateTime = {
+    new DateTime(dateString.substring(0, 4).toInt, dateString.substring(5, 7).toInt, dateString.substring(8, 10).toInt, 0, 0)
+  }
+
   def processYear(year: String) = {
     val eventFiles = (new File(DataRoot + "retrosheet/" + year + "eve")).listFiles.filter(x => x.getName.endsWith(".EVN") || x.getName.endsWith(".EVA"))
     var gamePitchers = Map.empty[String, RetrosheetPitcherDay]
@@ -127,7 +132,7 @@ object RetrosheetLoad extends App {
     var ballparks = Map.empty[String, BallparkDaily]
 
     def pitcherRecord(id: String, currentGame: RetrosheetGameInfo, side: String): RetrosheetPitcherDay = {
-      val currentPitcher = new RetrosheetPitcherDay(id, currentGame.game.id, currentGame.game.date,
+      val currentPitcher = new RetrosheetPitcherDay(id, currentGame.game.id, dateFromString(currentGame.game.date),
         if (side == "0") currentGame.game.homeTeam else currentGame.game.visitingTeam,
         if (currentGame.scoring.wp == id) 1 else 0, if (currentGame.scoring.lp == id) 1 else 0, if (currentGame.scoring.save == id) 1 else 0)
       if (!pitcherSummaries.contains(id)) pitcherSummaries += (id -> List(currentPitcher))
@@ -243,21 +248,21 @@ object RetrosheetLoad extends App {
   def computeStatistics = {
     logger.info("Computing Running Batter Statistics.")
     //val startTime = System.currentTimeMillis
-    batterSummaries.values.par.map { playerHistory =>
+    batterSummaries.values.map { playerHistory =>
       print(".")
       val sortedHistory = playerHistory.sortBy { x => x.date }
       val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", 0, "", 0)
       val movingAverageData = RunningHitterStatistics(currentHitterDay,
-        RunningHitterData(Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap),
-        RunningHitterData(Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap))
+        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap),
+        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap))
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
     }
     //println(System.currentTimeMillis - startTime)
     logger.info("Computing Running Pitcher Statistics.")
-    pitcherSummaries.values.par.map { playerHistory =>
+    pitcherSummaries.values.map { playerHistory =>
       print(".")
-      val sortedHistory = playerHistory.sortBy { x => x.date }
-      val currentPitcherDay = new RetrosheetPitcherDay(sortedHistory.head.id, "", "", "", 0, 0, 0)
+      val sortedHistory = playerHistory.sorted(Ordering.by({ x: RetrosheetPitcherDay => CcyymmddFormatter.print(x.date) }))
+      val currentPitcherDay = new RetrosheetPitcherDay(sortedHistory.head.id, "", sortedHistory.head.date, "", 0, 0, 0)
       val movingAverageData = RunningPitcherStatistics(currentPitcherDay, FantasyGamesPitching.keys.map((_ -> Queue.empty[Statistic])).toMap)
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
     }
@@ -291,7 +296,7 @@ object RetrosheetLoad extends App {
         hitterRawRH ++= rawRH
         print(".")
         val hStat = sortedHistory.map({ day =>
-          (day.date, day.id, day.gameId, day.side, day.lineupPosition, day.RHatBat + day.LHatBat, day.RHplateAppearance + day.LHplateAppearance,
+          (day.date, day.id, day.gameId, day.side, day.lineupPosition, day.lineupPositionRegime, day.RHatBat + day.LHatBat, day.RHplateAppearance + day.LHplateAppearance,
             someOrNone(day.dailyBattingAverage.rh), someOrNone(day.dailyBattingAverage.lh), someOrNone(day.dailyBattingAverage.total),
             someOrNone(day.battingAverage.rh), someOrNone(day.battingAverage.lh), someOrNone(day.battingAverage.total),
             someOrNone(day.onBasePercentage.rh), someOrNone(day.onBasePercentage.lh), someOrNone(day.onBasePercentage.total),
@@ -338,11 +343,12 @@ object RetrosheetLoad extends App {
         println(".")
       }
     }
+
     progress = 0
     pitcherSummaries.values.map { playerHistory =>
       db.withTransaction { implicit session =>
         progress = progress + 1
-        val sortedHistory = playerHistory.sortBy { x => x.date }
+        val sortedHistory = playerHistory.sorted(Ordering.by({ x: RetrosheetPitcherDay => CcyymmddFormatter.print(x.date) }))
         print(playerHistory.head.id + " [" + progress + "/" + pitcherSummaries.size + "] " + sortedHistory.length + " ")
         print(".")
         val pitcherDaily = sortedHistory.map(_.record)
@@ -350,14 +356,14 @@ object RetrosheetLoad extends App {
         pitcherDailyTable ++= pitcherDaily
         print(".")
         val fantasyStat = sortedHistory.map({ day =>
-          (day.date, day.id,
+          (CcyymmddFormatter.print(day.date), day.id,
             someOrNone(day.fantasyScores(FanDuelName).total), someOrNone(day.fantasyScores(DraftKingsName).total), someOrNone(day.fantasyScores(DraftsterName).total))
         })
         print(">")
         pitcherFantasy ++= fantasyStat
         print(".")
         val fantasyMovStat = sortedHistory.map({ day =>
-          (day.date, day.id,
+          (CcyymmddFormatter.print(day.date), day.id,
             someOrNone(day.fantasyScoresMov(FanDuelName).total), someOrNone(day.fantasyScoresMov(DraftKingsName).total), someOrNone(day.fantasyScoresMov(DraftsterName).total))
         })
         println(">")

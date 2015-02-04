@@ -1,7 +1,9 @@
 package org.bustos.realityball
 
-import RealityballRecords.{ PitcherDaily, Statistic }
+import org.joda.time._
 import FantasyScoreSheet._
+import RealityballRecords.{ PitcherDaily, Statistic }
+import RealityballConfig._
 
 object RetrosheetPitcherDay {
 
@@ -10,11 +12,11 @@ object RetrosheetPitcherDay {
   case class RunningPitcherStatistics(fullAccum: RetrosheetPitcherDay, fantasy: Map[String, Queue[Statistic]])
 }
 
-class RetrosheetPitcherDay(val id: String, val game: String, val date: String, opposing: String, win: Int, loss: Int, save: Int) extends StatisticsTrait {
+class RetrosheetPitcherDay(val id: String, val game: String, var date: DateTime, opposing: String, win: Int, loss: Int, save: Int) extends StatisticsTrait {
 
   import RetrosheetPitcherDay._
 
-  val record = new PitcherDaily(id, game, date, opposing, win, loss, save, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, 0)
+  val record = new PitcherDaily(id, game, CcyymmddFormatter.print(date), 0, opposing, win, loss, save, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, 0)
 
   var fantasyScores = FantasyGamesPitching.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
   var fantasyScoresMov = FantasyGamesPitching.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
@@ -31,12 +33,11 @@ class RetrosheetPitcherDay(val id: String, val game: String, val date: String, o
       data.fantasy.mapValues(_.dequeue)
     }
     fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> movingAverageSimple(data.fantasy(k)) }).toMap
+    if (data.fullAccum.date.getYear == date.getYear) record.daysSinceLastApp = Days.daysBetween(data.fullAccum.date.withTimeAtStartOfDay(), date.withTimeAtStartOfDay()).getDays
+    data.fullAccum.date = date
   }
 
   def processPlay(play: RetrosheetPlay) = {
-    if (id == "verlj001" && date == "2011/04/11") {
-      println(play.play + " " + play.outs + " " + record.outs)
-    }
     record.outs = record.outs + play.outs
     record.pitches = record.pitches + play.pitches.length
     record.balls = record.balls + play.balls

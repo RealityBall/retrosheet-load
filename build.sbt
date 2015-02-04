@@ -14,5 +14,7 @@ libraryDependencies ++= List(
   "org.slf4j"            %   "slf4j-simple"         % "1.7.6",
   "org.scalatest"        %%  "scalatest"            % "2.1.6" % "test",
   "io.spray"             %%  "spray-json"           % "1.3.1",
-  "mysql"                %   "mysql-connector-java" % "latest.release"
+  "mysql"                %   "mysql-connector-java" % "latest.release",
+  "joda-time"            % "joda-time"              % "2.7",
+  "org.joda"             % "joda-convert"           % "1.2"
 )

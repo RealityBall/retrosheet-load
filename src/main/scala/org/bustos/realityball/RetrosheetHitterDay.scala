@@ -16,6 +16,8 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
 
   def year: String = date.substring(0, 4)
 
+  var lineupPositionRegime = 0
+
   var RHplateAppearance: Int = 0
   var RHatBat: Int = 0
   var RHsingle: Int = 0
@@ -149,6 +151,7 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     onBasePercentage = data.fullAccum.onBasePercentage.copy()
     sluggingPercentage = data.fullAccum.sluggingPercentage.copy()
 
+    data.averagesData.lineupPosition.enqueue(lineupPosition)
     data.averagesData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.averagesData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
       RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly,
@@ -157,6 +160,7 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     fantasyScores.map({ case (k, v) => data.averagesData.fantasy(k).enqueue(fantasyScores(k)) })
 
     if (data.averagesData.ba.size > MovingAverageAtBatWindow) {
+      data.averagesData.lineupPosition.dequeue
       data.averagesData.ba.dequeue
       data.averagesData.obp.dequeue
       data.averagesData.slugging.dequeue
@@ -183,6 +187,12 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     onBaseVolatility = movingVolatility(data.volatilityData.obp)
     sluggingVolatility = movingVolatility(data.volatilityData.slugging)
     fantasyScoresVolatility = fantasyScoresVolatility.map({ case (k, v) => k -> movingVolatilitySimple(data.volatilityData.fantasy(k)) }).toMap
+
+    // Lineup position regime
+    val positionDoubles = data.averagesData.lineupPosition.filter { _ != 0 } map { _.toDouble }
+    val averageLineupPosition = mean(positionDoubles)
+    val stddevLineupPosition = standardDeviation(positionDoubles)
+    if (stddevLineupPosition < 1.0) lineupPositionRegime = averageLineupPosition.round.toInt
   }
 
   def updateFantasyScore(playOutcome: String, quantity: Int, gameName: String, track: Statistic, facingRighty: Boolean): Statistic = {
