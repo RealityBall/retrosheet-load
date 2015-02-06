@@ -11,8 +11,8 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
 
   import RetrosheetHitterDay._
 
-  val MovingAverageAtBatWindow = 25
-  val VolatilityAtBatWindow = 100
+  val MovingAverageGameWindow = 25
+  val VolatilityGameWindow = 100
 
   def year: String = date.substring(0, 4)
 
@@ -30,6 +30,9 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
   var RHhitByPitch: Int = 0
   var RHsacFly: Int = 0
   var RHsacHit: Int = 0
+  var RHstrikeOut: Int = 0
+  var RHflyBall: Int = 0
+  var RHgroundBall: Int = 0
 
   var LHplateAppearance: Int = 0
   var LHatBat: Int = 0
@@ -43,6 +46,9 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
   var LHhitByPitch: Int = 0
   var LHsacFly: Int = 0
   var LHsacHit: Int = 0
+  var LHstrikeOut: Int = 0
+  var LHflyBall: Int = 0
+  var LHgroundBall: Int = 0
 
   def LHhits(): Int = { LHsingle + LHdouble + LHtriple + LHhomeRun }
   def RHhits(): Int = { RHsingle + RHdouble + RHtriple + RHhomeRun }
@@ -159,7 +165,7 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     data.averagesData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
     fantasyScores.map({ case (k, v) => data.averagesData.fantasy(k).enqueue(fantasyScores(k)) })
 
-    if (data.averagesData.ba.size > MovingAverageAtBatWindow) {
+    if (data.averagesData.ba.size > MovingAverageGameWindow) {
       data.averagesData.lineupPosition.dequeue
       data.averagesData.ba.dequeue
       data.averagesData.obp.dequeue
@@ -167,10 +173,10 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
       data.averagesData.fantasy.values.foreach(_.dequeue)
     }
 
-    battingAverageMov = movingAverage(data.averagesData.ba)
-    onBasePercentageMov = movingAverage(data.averagesData.obp)
-    sluggingPercentageMov = movingAverage(data.averagesData.slugging)
-    fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> movingAverageSimple(data.averagesData.fantasy(k)) }).toMap
+    battingAverageMov = queueMean(data.averagesData.ba)
+    onBasePercentageMov = queueMean(data.averagesData.obp)
+    sluggingPercentageMov = queueMean(data.averagesData.slugging)
+    fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> queueMeanSimple(data.averagesData.fantasy(k)) }).toMap
 
     data.volatilityData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.volatilityData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
@@ -178,15 +184,15 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
       LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.volatilityData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
 
-    if (data.volatilityData.ba.size > VolatilityAtBatWindow) {
+    if (data.volatilityData.ba.size > VolatilityGameWindow) {
       data.volatilityData.ba.dequeue
       data.volatilityData.obp.dequeue
       data.volatilityData.slugging.dequeue
     }
-    battingVolatility = movingVolatility(data.volatilityData.ba)
-    onBaseVolatility = movingVolatility(data.volatilityData.obp)
-    sluggingVolatility = movingVolatility(data.volatilityData.slugging)
-    fantasyScoresVolatility = fantasyScoresVolatility.map({ case (k, v) => k -> movingVolatilitySimple(data.volatilityData.fantasy(k)) }).toMap
+    battingVolatility = movingVolatility(data.volatilityData.ba, true)
+    onBaseVolatility = movingVolatility(data.volatilityData.obp, true)
+    sluggingVolatility = movingVolatility(data.volatilityData.slugging, true)
+    fantasyScoresVolatility = fantasyScoresVolatility.map({ case (k, v) => k -> movingVolatilitySimple(data.volatilityData.fantasy(k), true) }).toMap
 
     // Lineup position regime
     val positionDoubles = data.averagesData.lineupPosition.filter { _ != 0 } map { _.toDouble }
@@ -230,8 +236,10 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
       if (facingRighty) RHatBat = RHatBat + 1
       else LHatBat = LHatBat + 1
     }
+
     if (facingRighty) RHplateAppearance = RHplateAppearance + 1
     else LHplateAppearance = LHplateAppearance + 1
+
     if (play.isSingle) {
       if (facingRighty) {
         RHsingle = RHsingle + 1
@@ -289,7 +297,10 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     } else if (play.isStrikeOut) {
       fantasyScores = fantasyScores.map({ case (k, v) => (k -> updateFantasyScore("SO", 1, k, v, facingRighty)) })
       fantasyScores = fantasyScores.map({ case (k, v) => (k -> updateFantasyScore("OUT", 1, k, v, facingRighty)) })
+      incrementStrikeOuts(facingRighty)
     }
+    if (play.isFlyBall) incrementFlyBall(facingRighty)
+    if (play.isGroundBall) incrementGroundBall(facingRighty)
     if (play.rbis > 0) {
       if (facingRighty) {
         RHRBI = RHRBI + play.rbis
@@ -302,4 +313,29 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
       fantasyScores = fantasyScores.map({ case (k, v) => (k -> updateFantasyScore("R", play.rbis, k, v, facingRighty)) })
     }
   }
+
+  private def incrementStrikeOuts(facingRighty: Boolean) = {
+    if (facingRighty) {
+      RHstrikeOut = RHstrikeOut + 1
+    } else {
+      LHstrikeOut = LHstrikeOut + 1
+    }
+  }
+
+  private def incrementFlyBall(facingRighty: Boolean) = {
+    if (facingRighty) {
+      RHflyBall = RHflyBall + 1
+    } else {
+      LHflyBall = LHflyBall + 1
+    }
+  }
+
+  private def incrementGroundBall(facingRighty: Boolean) = {
+    if (facingRighty) {
+      RHgroundBall = RHgroundBall + 1
+    } else {
+      LHgroundBall = LHgroundBall + 1
+    }
+  }
+
 }

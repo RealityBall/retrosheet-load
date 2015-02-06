@@ -282,7 +282,7 @@ object RetrosheetLoad extends App {
         val rawLH = sortedHistory.map({ day =>
           (day.date, day.id, day.gameId, day.side,
             day.LHatBat, day.LHsingle, day.LHdouble, day.LHtriple, day.LHhomeRun, day.LHRBI, day.LHruns,
-            day.LHbaseOnBalls, day.LHhitByPitch, day.LHsacFly, day.LHsacHit)
+            day.LHbaseOnBalls, day.LHhitByPitch, day.LHsacFly, day.LHsacHit, day.LHstrikeOut, day.LHflyBall, day.LHgroundBall)
         })
         print(">")
         hitterRawLH ++= rawLH
@@ -290,7 +290,7 @@ object RetrosheetLoad extends App {
         val rawRH = sortedHistory.map({ day =>
           (day.date, day.id, day.gameId, day.side,
             day.RHatBat, day.RHsingle, day.RHdouble, day.RHtriple, day.RHhomeRun, day.RHRBI, day.RHruns,
-            day.RHbaseOnBalls, day.RHhitByPitch, day.RHsacFly, day.RHsacHit)
+            day.RHbaseOnBalls, day.RHhitByPitch, day.RHsacFly, day.RHsacHit, day.RHstrikeOut, day.RHflyBall, day.RHgroundBall)
         })
         print(">")
         hitterRawRH ++= rawRH
@@ -378,7 +378,7 @@ object RetrosheetLoad extends App {
   processBallparks
   var batterSummaries = Map.empty[String, List[RetrosheetHitterDay]]
   var pitcherSummaries = Map.empty[String, List[RetrosheetPitcherDay]]
-  (2010 to 2014).map { i => processYear(i.toString) }
+  (2014 to 2014).map { i => processYear(i.toString) }
   computeStatistics
   persist
 

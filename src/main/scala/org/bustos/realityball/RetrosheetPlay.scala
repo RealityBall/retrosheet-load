@@ -72,8 +72,8 @@ object RetrosheetPlay {
   UREV  umpire review of call on the field
   *
   */
-  val groundOutType = List("/BG", "/G", "/SH")
-  val flyOutType = List("/BP", "/BL", "/BP", "/F", "/L", "/P", "/SF")
+  val groundBallType = List("/BG", "/G", "/SH")
+  val flyBallType = List("/BP", "/BL", "/BP", "/F", "/L", "/P", "/SF")
   val ballType = List('B', 'I', 'V', 'P')
 }
 
@@ -104,12 +104,20 @@ class RetrosheetPlay(val pitchSeq: String, val play: String) {
     else 0
   }
 
+  val isGroundBall: Boolean = {
+    groundBallType.exists { play.contains(_) }
+  }
+
   val isGroundOut: Boolean = {
-    outs > 0 && groundOutType.exists { play.contains(_) }
+    outs > 0 && isGroundBall
+  }
+
+  val isFlyBall: Boolean = {
+    flyBallType.exists { x => play.contains(x) } && !play.contains("/FO/G")
   }
 
   val isFlyOut: Boolean = {
-    outs > 0 && flyOutType.exists { x => play.contains(x) } && !play.contains("/FO/G")
+    outs > 0 && isFlyBall
   }
 
   val pitches: String = {
