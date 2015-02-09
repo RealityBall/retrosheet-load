@@ -9,22 +9,22 @@ import RealityballRecords._
 trait StatisticsTrait {
 
   private def volatilityContribution(mean: Double, observation: Double, index: Double, count: Int, weighted: Boolean): Double = {
-    if (weighted) pow((observation - mean) * (index / count.toDouble), 2.0)
+    if (weighted) pow((observation - mean) * ((count.toDouble - index) / count.toDouble), 2.0)
     else pow((observation - mean), 2.0)
   }
 
-  private def accum(x: Double, y: Double): Double = {
-    if (!y.isNaN) {
-      if (x.isNaN) y
-      else x + y
-    } else x
+  private def accum(running: Double, next: Double): Double = {
+    if (!next.isNaN) {
+      if (running.isNaN) next
+      else running + next
+    } else running
   }
 
-  private def accumCount(x: Double, y: Double): Double = {
-    if (!y.isNaN) {
-      if (x.isNaN) x
-      else x + 1
-    } else x
+  private def accumCount(running: Double, next: Double): Double = {
+    if (!next.isNaN) {
+      if (running.isNaN) 1
+      else running + 1
+    } else running
   }
 
   def queueMeanSimple(data: Queue[Statistic]): Statistic = {
@@ -40,7 +40,8 @@ trait StatisticsTrait {
 
   def queueMean(data: Queue[StatisticInputs]): Statistic = {
     val running = data.foldLeft(StatisticInputs(0, 0, 0, 0, 0, 0))({ (x, y) =>
-      StatisticInputs(x.totalNumer + y.totalNumer, x.totalDenom + y.totalDenom,
+      StatisticInputs(
+        x.totalNumer + y.totalNumer, x.totalDenom + y.totalDenom,
         x.rhNumer + y.rhNumer, x.rhDenom + y.rhDenom,
         x.lhNumer + y.lhNumer, x.lhDenom + y.lhDenom)
     })
@@ -54,31 +55,42 @@ trait StatisticsTrait {
   def movingVolatilitySimple(data: Queue[Statistic], weighted: Boolean): Statistic = {
     val average = queueMeanSimple(data)
     val runningAccum = data.foldLeft((Statistic(0.0, 0.0, 0.0), Statistic(0.0, 0.0, 0.0)))({ (x, y) =>
-      (Statistic(x._1.total + volatilityContribution(average.total, y.total, x._2.total, data.size, weighted),
+      val totalWeight = if (weighted) ((data.size.toDouble - x._2.total) / data.size.toDouble) else 1.0
+      val rhWeight = if (weighted) ((data.size.toDouble - x._2.rh) / data.size.toDouble) else 1.0
+      val lhWeight = if (weighted) ((data.size.toDouble - x._2.lh) / data.size.toDouble) else 1.0
+      (Statistic(
+        x._1.total + volatilityContribution(average.total, y.total, x._2.total, data.size, weighted),
         x._1.rh + volatilityContribution(average.rh, y.rh, x._2.rh, data.size, weighted),
-        x._1.lh + volatilityContribution(average.lh, y.lh, x._2.lh, data.size, weighted)), Statistic(x._2.total + 1.0, x._2.rh + 1.0, x._2.lh + 1.0))
+        x._1.lh + volatilityContribution(average.lh, y.lh, x._2.lh, data.size, weighted)),
+        Statistic(x._2.total + totalWeight, x._2.rh + rhWeight, x._2.lh + lhWeight))
     })
     Statistic(sqrt(runningAccum._1.total / runningAccum._2.total), sqrt(runningAccum._1.rh / runningAccum._2.rh), sqrt(runningAccum._1.lh / runningAccum._2.lh))
   }
 
   def movingVolatility(data: Queue[StatisticInputs], weighted: Boolean): Statistic = {
     val average = queueMean(data)
-    val runningTotal = data.foldLeft((0.0, 0.0))({ (x, y) =>
+    val runningTotal = data.foldLeft((0.0, 0.0, 0.0))({ (x, y) =>
       {
-        if (y.totalDenom > 0) (x._1 + volatilityContribution(average.total, y.totalNumer.toDouble / y.totalDenom.toDouble, x._2, data.size, weighted), x._2 + 1.0)
-        else x
+        if (y.totalDenom > 0) {
+          val weight = if (weighted) ((data.size.toDouble - x._3) / data.size) else 1.0
+          (x._1 + volatilityContribution(average.total, y.totalNumer.toDouble / y.totalDenom.toDouble, x._2, data.size, weighted), x._2 + weight, x._3 + 1.0)
+        } else x
       }
     })
-    val runningRH = data.foldLeft((0.0, 0.0))({ (x, y) =>
+    val runningRH = data.foldLeft((0.0, 0.0, 0.0))({ (x, y) =>
       {
-        if (y.rhDenom > 0) (x._1 + volatilityContribution(average.rh, y.rhNumer.toDouble / y.rhDenom.toDouble, x._2, data.size, weighted), x._2 + 1.0)
-        else x
+        if (y.rhDenom > 0) {
+          val weight = if (weighted) ((data.size.toDouble - x._3) / data.size) else 1.0
+          (x._1 + volatilityContribution(average.rh, y.rhNumer.toDouble / y.rhDenom.toDouble, x._2, data.size, weighted), x._2 + weight, x._3 + 1.0)
+        } else x
       }
     })
-    val runningLH = data.foldLeft((0.0, 0.0))({ (x, y) =>
+    val runningLH = data.foldLeft((0.0, 0.0, 0.0))({ (x, y) =>
       {
-        if (y.lhDenom > 0) (x._1 + volatilityContribution(average.lh, y.lhNumer.toDouble / y.lhDenom.toDouble, x._2, data.size, weighted), x._2 + 1.0)
-        else x
+        if (y.lhDenom > 0) {
+          val weight = if (weighted) ((data.size.toDouble - x._3) / data.size) else 1.0
+          (x._1 + volatilityContribution(average.lh, y.lhNumer.toDouble / y.lhDenom.toDouble, x._2, data.size, weighted), x._2 + weight, x._3 + 1.0)
+        } else x
       }
     })
     Statistic(sqrt(runningTotal._1 / runningTotal._2), sqrt(runningRH._1 / runningRH._2), sqrt(runningLH._1 / runningLH._2))

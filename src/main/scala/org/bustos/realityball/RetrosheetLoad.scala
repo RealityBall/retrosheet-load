@@ -378,7 +378,7 @@ object RetrosheetLoad extends App {
   processBallparks
   var batterSummaries = Map.empty[String, List[RetrosheetHitterDay]]
   var pitcherSummaries = Map.empty[String, List[RetrosheetPitcherDay]]
-  (2014 to 2014).map { i => processYear(i.toString) }
+  (2010 to 2014).map { i => processYear(i.toString) }
   computeStatistics
   persist
 
