@@ -179,21 +179,21 @@ object RetrosheetLoad extends App {
           }
           case pitcherExpression(id, name, side, lineupPosition) => {
             currentPitchers += (side -> pitcherRecord(id, currentGame, side))
+            if (side == "1") currentGame.game.startingHomePitcher = id
+            else currentGame.game.startingVisitingPitcher = id
+            if (lineupPosition.toInt > 0) hitterForDay(currentGame.game, id, lineupPosition.toInt, side.toInt)
           }
           case pitcherSubExpression(id, name, side, lineupPosition) => {
             currentPitchers += (side -> pitcherRecord(id, currentGame, side))
           }
           case lineupExpression(id, name, side, lineupPosition, position) => {
-            val currentHitterDay = hitterForDay(currentGame.game, id, lineupPosition.toInt, side.toInt)
+            hitterForDay(currentGame.game, id, lineupPosition.toInt, side.toInt)
           }
           case erExpression(id, earnedRuns) => {
             val pitcherRecord = gamePitchers(id)
             pitcherRecord.record.earnedRuns = earnedRuns.toInt
           }
           case playExpression(inning, side, id, count, pitches, playString) => {
-            //            if (id == "cabrm001" && currentGame.game.id == "LAN201404090") {
-            //              println("")
-            //            }
             if (inning.toInt != currentInning || side.toInt != currentSide) {
               currentInning = inning.toInt
               currentSide = side.toInt

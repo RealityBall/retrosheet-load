@@ -13,28 +13,28 @@ import com.github.tototoshi.csv._
 
 class CrunchtimeBaseballMapping {
 
-  val logger =  LoggerFactory.getLogger(getClass)
-  
+  val logger = LoggerFactory.getLogger(getClass)
+
   def processIdMappings = {
     logger.info("Updating id mapping codes...")
-    
+
     implicit val codec = Codec("UTF-8")
     codec.onMalformedInput(CodingErrorAction.REPLACE)
-    codec.onUnmappableCharacter(CodingErrorAction.REPLACE)    
-    
+    codec.onUnmappableCharacter(CodingErrorAction.REPLACE)
+
     db.withSession { implicit session =>
       if (!MTable.getTables("idMapping").list.isEmpty) {
         idMappingTable.ddl.drop
       }
       idMappingTable.ddl.create
       val reader = CSVReader.open(new File(DataRoot + "/crunchtimeBaseball/master.csv"))
-      reader.allWithHeaders.foreach { line => 
-          idMappingTable += IdMapping(line("mlb_id"), line("mlb_name"), line("mlb_team"),
-                                      line("bref_id"), line("bref_name"),
-                                      line("espn_id"), line("espn_name"),
-                                      line("retro_id"), line("retro_name"))
+      reader.allWithHeaders.foreach { line =>
+        idMappingTable += IdMapping(line("mlb_id"), line("mlb_name"), line("mlb_team"),
+          line("bref_id"), line("bref_name"),
+          line("espn_id"), line("espn_name"),
+          line("retrosheet_id"), line("retrosheet_name"))
       }
-    }    
+    }
   }
 
 }

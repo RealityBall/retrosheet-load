@@ -198,7 +198,7 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     val positionDoubles = data.averagesData.lineupPosition.filter { _ != 0 } map { _.toDouble }
     val averageLineupPosition = mean(positionDoubles)
     val stddevLineupPosition = standardDeviation(positionDoubles)
-    if (stddevLineupPosition < 1.0) lineupPositionRegime = averageLineupPosition.round.toInt
+    if (stddevLineupPosition < 1.5) lineupPositionRegime = averageLineupPosition.round.toInt
   }
 
   def updateFantasyScore(playOutcome: String, quantity: Int, gameName: String, track: Statistic, facingRighty: Boolean): Statistic = {
