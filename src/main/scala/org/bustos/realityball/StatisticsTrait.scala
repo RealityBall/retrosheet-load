@@ -5,6 +5,7 @@ import org.bustos.realityball.RealityballRecords._
 import scala.collection.mutable.Queue
 import scala.math.{ pow, sqrt }
 import RealityballRecords._
+import RealityballConfig._
 
 trait StatisticsTrait {
 
@@ -13,23 +14,26 @@ trait StatisticsTrait {
     else pow((observation - mean), 2.0)
   }
 
-  private def accum(running: Double, next: Double): Double = {
+  private def accum(running: Double, next: Double, runningCount: Double, weighted: Boolean): Double = {
+    val factor = if (weighted) MovingAverageExponentialWeights(runningCount.toInt + 1) else 1.0
     if (!next.isNaN) {
-      if (running.isNaN) next
-      else running + next
+      if (running.isNaN) next * factor
+      else running + next * factor
     } else running
   }
 
-  private def accumCount(running: Double, next: Double): Double = {
+  private def accumCount(running: Double, next: Double, weighted: Boolean): Double = {
+    val factor = if (weighted) MovingAverageExponentialWeights(running.toInt) else 1.0
     if (!next.isNaN) {
-      if (running.isNaN) 1
-      else running + 1
+      if (running.isNaN) factor
+      else running + factor
     } else running
   }
 
-  def queueMeanSimple(data: Queue[Statistic]): Statistic = {
+  def queueMeanSimple(data: Queue[Statistic], weighted: Boolean): Statistic = {
     val running = data.foldLeft((Statistic(0.0, 0.0, 0.0), Statistic(0.0, 0.0, 0.0)))({ (x, y) =>
-      (Statistic(accum(x._1.total, y.total), accum(x._1.rh, y.rh), accum(x._1.lh, y.lh)), Statistic(accumCount(x._2.total, y.total), accumCount(x._2.rh, y.rh), accumCount(x._2.lh, y.lh)))
+      (Statistic(accum(x._1.total, y.total, x._2.total, weighted), accum(x._1.rh, y.rh, x._2.rh, weighted), accum(x._1.lh, y.lh, x._2.lh, weighted)),
+        Statistic(accumCount(x._2.total, y.total, weighted), accumCount(x._2.rh, y.rh, weighted), accumCount(x._2.lh, y.lh, weighted)))
     })
     if (data.size > 0) Statistic(
       if (running._2.total > 0.0) running._1.total / running._2.total else Double.NaN,
@@ -38,22 +42,23 @@ trait StatisticsTrait {
     else Statistic(Double.NaN, Double.NaN, Double.NaN)
   }
 
-  def queueMean(data: Queue[StatisticInputs]): Statistic = {
-    val running = data.foldLeft(StatisticInputs(0, 0, 0, 0, 0, 0))({ (x, y) =>
-      StatisticInputs(
-        x.totalNumer + y.totalNumer, x.totalDenom + y.totalDenom,
-        x.rhNumer + y.rhNumer, x.rhDenom + y.rhDenom,
-        x.lhNumer + y.lhNumer, x.lhDenom + y.lhDenom)
+  def queueMean(data: Queue[StatisticInputs], weighted: Boolean): Statistic = {
+    val running = data.foldLeft((StatisticInputs(0.0, 0.0, 0.0, 0.0, 0.0, 0.0), 0))({ (x, y) =>
+      val factor = if (weighted) MovingAverageExponentialWeights(x._2) else 1.0
+      (StatisticInputs(
+        x._1.totalNumer + y.totalNumer * factor, x._1.totalDenom + y.totalDenom * factor,
+        x._1.rhNumer + y.rhNumer * factor, x._1.rhDenom + y.rhDenom * factor,
+        x._1.lhNumer + y.lhNumer * factor, x._1.lhDenom + y.lhDenom * factor), x._2 + 1)
     })
     if (data.size > 0) Statistic(
-      if (running.totalDenom > 0.0) running.totalNumer.toDouble / running.totalDenom.toDouble else Double.NaN,
-      if (running.rhDenom > 0.0) running.rhNumer.toDouble / running.rhDenom.toDouble else Double.NaN,
-      if (running.lhDenom > 0.0) running.lhNumer.toDouble / running.lhDenom.toDouble else Double.NaN)
+      if (running._1.totalDenom > 0.0) running._1.totalNumer / running._1.totalDenom else Double.NaN,
+      if (running._1.rhDenom > 0.0) running._1.rhNumer / running._1.rhDenom else Double.NaN,
+      if (running._1.lhDenom > 0.0) running._1.lhNumer / running._1.lhDenom else Double.NaN)
     else Statistic(Double.NaN, Double.NaN, Double.NaN)
   }
 
   def movingVolatilitySimple(data: Queue[Statistic], weighted: Boolean): Statistic = {
-    val average = queueMeanSimple(data)
+    val average = queueMeanSimple(data, false)
     val runningAccum = data.foldLeft((Statistic(0.0, 0.0, 0.0), Statistic(0.0, 0.0, 0.0)))({ (x, y) =>
       val totalWeight = if (weighted) ((data.size.toDouble - x._2.total) / data.size.toDouble) else 1.0
       val rhWeight = if (weighted) ((data.size.toDouble - x._2.rh) / data.size.toDouble) else 1.0
@@ -68,7 +73,7 @@ trait StatisticsTrait {
   }
 
   def movingVolatility(data: Queue[StatisticInputs], weighted: Boolean): Statistic = {
-    val average = queueMean(data)
+    val average = queueMean(data, false)
     val runningTotal = data.foldLeft((0.0, 0.0, 0.0))({ (x, y) =>
       {
         if (y.totalDenom > 0) {

@@ -32,7 +32,7 @@ class RetrosheetPitcherDay(val id: String, val game: String, var date: DateTime,
     if (data.fantasy.size > 25) {
       data.fantasy.mapValues(_.dequeue)
     }
-    fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> queueMeanSimple(data.fantasy(k)) }).toMap
+    fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> queueMeanSimple(data.fantasy(k), true) }).toMap
     if (data.fullAccum.date.getYear == date.getYear) record.daysSinceLastApp = Days.daysBetween(data.fullAccum.date.withTimeAtStartOfDay(), date.withTimeAtStartOfDay()).getDays
     data.fullAccum.date = date
   }

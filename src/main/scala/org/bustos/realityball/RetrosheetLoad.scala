@@ -35,7 +35,7 @@ object RetrosheetLoad extends App {
 
   val tables: Map[String, TableQuery[_ <: slick.driver.MySQLDriver.Table[_]]] = Map(
     ("hitterRawLHstats" -> hitterRawLH), ("hitterRawRHstats" -> hitterRawRH), ("hitterDailyStats" -> hitterStats),
-    ("hitterMovingStats" -> hitterMovingStats), ("hitterFantasyStats" -> hitterFantasy), ("hitterFantasyMovingStats" -> hitterFantasyMoving),
+    ("hitterMovingStats" -> hitterMovingStats), ("hitterFantasyStats" -> hitterFantasyTable), ("hitterFantasyMovingStats" -> hitterFantasyMovingTable), ("hitterFantasyVolatilityStats" -> hitterFantasyVolatilityTable),
     ("pitcherFantasyStats" -> pitcherFantasy), ("pitcherFantasyMovingStats" -> pitcherFantasyMoving), ("hitterVolatilityStats" -> hitterVolatilityStats),
     ("games" -> gamesTable), ("ballparkDailies" -> ballparkDailiesTable), ("ballpark" -> ballparkTable), ("gameConditions" -> gameConditionsTable),
     ("gameScoring" -> gameScoringTable), ("teams" -> teamsTable), ("players" -> playersTable), ("pitcherDaily" -> pitcherDailyTable))
@@ -166,7 +166,7 @@ object RetrosheetLoad extends App {
         line match {
           case gameIdExpression(id) => {
             currentGame = new RetrosheetGameInfo(id)
-            currentBallpark = new BallparkDaily("", "", 0, 0, 0, 0, 0, 0)
+            currentBallpark = new BallparkDaily("", "", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
             ballparks += (currentGame.game.id -> currentBallpark)
             games = currentGame :: games
             gamePitchers = gamePitchers.empty
@@ -225,7 +225,7 @@ object RetrosheetLoad extends App {
             }
             runners = moveRunners(id, play, runners)
             currentHitterDay.updateWithPlay(play, facingRighty)
-            currentHitterDay.updateBallpark(currentBallpark)
+            play.updateBallpark(currentBallpark, facingRighty)
           }
           case _ => {}
         }
@@ -253,8 +253,10 @@ object RetrosheetLoad extends App {
       val sortedHistory = playerHistory.sortBy { x => x.date }
       val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", 0, "", 0)
       val movingAverageData = RunningHitterStatistics(currentHitterDay,
-        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap),
-        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap))
+        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap,
+          Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic]),
+        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap,
+          Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic]))
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
     }
     //println(System.currentTimeMillis - startTime)
@@ -306,10 +308,11 @@ object RetrosheetLoad extends App {
         hitterStats ++= hStat
         print(".")
         val movStat = sortedHistory.map({ day =>
-          (day.date, day.id,
+          HitterStatsMoving(day.date, day.id,
             someOrNone(day.battingAverageMov.rh), someOrNone(day.battingAverageMov.lh), someOrNone(day.battingAverageMov.total),
             someOrNone(day.onBasePercentageMov.rh), someOrNone(day.onBasePercentageMov.lh), someOrNone(day.onBasePercentageMov.total),
-            someOrNone(day.sluggingPercentageMov.rh), someOrNone(day.sluggingPercentageMov.lh), someOrNone(day.sluggingPercentageMov.total))
+            someOrNone(day.sluggingPercentageMov.rh), someOrNone(day.sluggingPercentageMov.lh), someOrNone(day.sluggingPercentageMov.total),
+            day.RHstyle, day.LHstyle, day.style)
         })
         print(">")
         hitterMovingStats ++= movStat
@@ -330,16 +333,25 @@ object RetrosheetLoad extends App {
             someOrNone(day.fantasyScores(DraftsterName).rh), someOrNone(day.fantasyScores(DraftsterName).lh), someOrNone(day.fantasyScores(DraftsterName).total))
         })
         print(">")
-        hitterFantasy ++= fantasyStat
+        hitterFantasyTable ++= fantasyStat
         print(".")
         val fantasyMovStat = sortedHistory.map({ day =>
-          (day.date, day.id,
+          HitterFantasy(day.date, day.id,
             someOrNone(day.fantasyScoresMov(FanDuelName).rh), someOrNone(day.fantasyScoresMov(FanDuelName).lh), someOrNone(day.fantasyScoresMov(FanDuelName).total),
             someOrNone(day.fantasyScoresMov(DraftKingsName).rh), someOrNone(day.fantasyScoresMov(DraftKingsName).lh), someOrNone(day.fantasyScoresMov(DraftKingsName).total),
             someOrNone(day.fantasyScoresMov(DraftsterName).rh), someOrNone(day.fantasyScoresMov(DraftsterName).lh), someOrNone(day.fantasyScoresMov(DraftsterName).total))
         })
         print(">")
-        hitterFantasyMoving ++= fantasyMovStat
+        hitterFantasyMovingTable ++= fantasyMovStat
+        print(".")
+        val fantasyVolStat = sortedHistory.map({ day =>
+          HitterFantasy(day.date, day.id,
+            someOrNone(day.fantasyScoresVolatility(FanDuelName).rh), someOrNone(day.fantasyScoresVolatility(FanDuelName).lh), someOrNone(day.fantasyScoresVolatility(FanDuelName).total),
+            someOrNone(day.fantasyScoresVolatility(DraftKingsName).rh), someOrNone(day.fantasyScoresVolatility(DraftKingsName).lh), someOrNone(day.fantasyScoresVolatility(DraftKingsName).total),
+            someOrNone(day.fantasyScoresVolatility(DraftsterName).rh), someOrNone(day.fantasyScoresVolatility(DraftsterName).lh), someOrNone(day.fantasyScoresVolatility(DraftsterName).total))
+        })
+        print(">")
+        hitterFantasyVolatilityTable ++= fantasyVolStat
         println(".")
       }
     }

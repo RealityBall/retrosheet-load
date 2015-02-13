@@ -1,5 +1,7 @@
 package org.bustos.realityball
 
+import RealityballRecords.BallparkDaily
+
 object RetrosheetPlay {
   /*
  * Retrosheet pitch characters
@@ -86,6 +88,15 @@ class RetrosheetPlay(val pitchSeq: String, val play: String) {
     if (isStolenBase) play(2)
     else ' '
   }
+
+  def totalBases: Int = {
+    if (isSingle) 1
+    else if (isDouble) 2
+    else if (isTriple) 3
+    else if (isHomeRun) 4
+    else 0
+  }
+
   val isSingle: Boolean = play.startsWith("S") && !play.startsWith("SB")
   val isDouble: Boolean = play.startsWith("D") && !play.startsWith("DI") // DI: Defensive indifference, runners may advance
   val isTriple: Boolean = play.startsWith("T")
@@ -174,5 +185,23 @@ class RetrosheetPlay(val pitchSeq: String, val play: String) {
   // BK  Balk
   // SB  Stolen Base
   // PO  Picked off runner
+
+  def updateBallpark(ballpark: BallparkDaily, facingRighty: Boolean) = {
+    if (facingRighty) {
+      ballpark.RHhits = ballpark.RHhits + { if (isSingle || isDouble || isTriple || isHomeRun) 1 else 0 }
+      ballpark.RHtotalBases = ballpark.RHtotalBases + totalBases
+      ballpark.RHatBat = ballpark.RHatBat + { if (atBat) 1 else 0 }
+      ballpark.RHbaseOnBalls = ballpark.RHbaseOnBalls + { if (isBaseOnBalls) 1 else 0 }
+      ballpark.RHhitByPitch = ballpark.RHhitByPitch + { if (isHitByPitch) 1 else 0 }
+      ballpark.RHsacFly = ballpark.RHsacFly + { if (isSacFly) 1 else 0 }
+    } else {
+      ballpark.LHhits = ballpark.LHhits + { if (isSingle || isDouble || isTriple || isHomeRun) 1 else 0 }
+      ballpark.LHtotalBases = ballpark.LHtotalBases + totalBases
+      ballpark.LHatBat = ballpark.LHatBat + { if (atBat) 1 else 0 }
+      ballpark.LHbaseOnBalls = ballpark.LHbaseOnBalls + { if (isBaseOnBalls) 1 else 0 }
+      ballpark.LHhitByPitch = ballpark.LHhitByPitch + { if (isHitByPitch) 1 else 0 }
+      ballpark.LHsacFly = ballpark.LHsacFly + { if (isSacFly) 1 else 0 }
+    }
+  }
 
 }
