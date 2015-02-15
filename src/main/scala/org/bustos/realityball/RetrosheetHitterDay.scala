@@ -216,10 +216,10 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     else if (recentRHgroundBalls / abResultTotals.rh > StyleThreshold) RHstyle = GroundBall
     else if (recentRHbaseOnBalls / abResultTotals.rh > StyleThreshold) RHstyle = BaseOnBalls
 
-    battingAverageMov = queueMean(data.averagesData.ba, true)
-    onBasePercentageMov = queueMean(data.averagesData.obp, true)
-    sluggingPercentageMov = queueMean(data.averagesData.slugging, true)
-    fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> queueMeanSimple(data.averagesData.fantasy(k), true) }).toMap
+    battingAverageMov = queueMean(data.averagesData.ba, false)
+    onBasePercentageMov = queueMean(data.averagesData.obp, false)
+    sluggingPercentageMov = queueMean(data.averagesData.slugging, false)
+    fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> queueMeanSimple(data.averagesData.fantasy(k), false) }).toMap
 
     data.volatilityData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.volatilityData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
