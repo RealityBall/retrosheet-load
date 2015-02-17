@@ -38,4 +38,25 @@ object RealityballConfig {
     rawWeights.map(_ / totalWeight).toList
   }
 
+  val StrikeOut = "StrikeOut"
+  val FlyBall = "FlyBall"
+  val GroundBall = "GroundBall"
+  val BaseOnBalls = "BaseOnBalls"
+
+  val StrikeOutBatterStyleThreshold = (0.206 + 0.062)
+  val FlyballBatterStyleThreshold = (0.381 + 0.057)
+  val GroundballBatterStyleThreshold = (0.328 + 0.070)
+  val BaseOnBallsBatterStyleThreshold = (0.085 + 0.031)
+
+  val StrikeOutPitcherStyleThreshold = (0.301 + 0.076 / 2.0)
+  val FlyballPitcherStyleThreshold = (0.339 + 0.073 / 2.0)
+  val GroundballPitcherStyleThreshold = (0.353 + 0.088 / 2.0)
+
+  val MatchupNeutral = 0.592
+  val FlyballFlyball = 0.749
+  val StrikeOutStrikeOut = 0.381
+  val GroundballFlyball = 0.707
+  val GroundballStrikeOut = 0.496
+  val StrikeoutGroundball = 0.467
+
 }

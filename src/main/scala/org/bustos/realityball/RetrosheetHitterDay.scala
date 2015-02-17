@@ -2,22 +2,21 @@ package org.bustos.realityball
 
 import FantasyScoreSheet._
 import RealityballRecords._
+import RealityballConfig._
+import org.joda.time._
+import scala.collection.mutable.Queue
 
 object RetrosheetHitterDay {
-  case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, volatilityData: RunningHitterData)
-}
-
-class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: Int, val gameId: String, val side: Int) extends StatisticsTrait {
-
-  import RetrosheetHitterDay._
 
   val MovingAverageGameWindow = 25
   val VolatilityGameWindow = 100
-  val StyleThreshold = 0.40
-  val StrikeOut = "StrikeOut"
-  val FlyBall = "FlyBall"
-  val GroundBall = "GroundBall"
-  val BaseOnBalls = "BaseOnBalls"
+
+  case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, averagesDates: Queue[DateTime], volatilityData: RunningHitterData, volatilityDates: Queue[DateTime])
+}
+
+class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: String, var pitcherIndex: Int, val lineupPosition: Int, val gameId: String, val side: Int) extends StatisticsTrait {
+
+  import RetrosheetHitterDay._
 
   def year: String = date.substring(0, 4)
 
@@ -66,21 +65,31 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
   var stolenBase: Int = 0
   var caughtStealing: Int = 0
 
-  var dailyBattingAverage = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var battingAverage = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var onBasePercentage = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var sluggingPercentage = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScores = FantasyGamesBatting.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
+  val fantasyScoresDates: Queue[DateTime] = Queue.empty[DateTime]
 
-  var battingAverageMov = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var onBasePercentageMov = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var sluggingPercentageMov = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScoresMov = FantasyGamesBatting.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
+  var dailyBattingAverage = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var battingAverage = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var onBasePercentage = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var sluggingPercentage = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var fantasyScores = FantasyGamesBatting.keys.map(_ -> Statistic(date, 0.0, 0.0, 0.0)).toMap
 
-  var battingVolatility = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var onBaseVolatility = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var sluggingVolatility = Statistic(Double.NaN, Double.NaN, Double.NaN)
-  var fantasyScoresVolatility = FantasyGamesBatting.keys.map(_ -> Statistic(0.0, 0.0, 0.0)).toMap
+  var battingAverageMov = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var onBasePercentageMov = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var sluggingPercentageMov = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var fantasyScoresMov = FantasyGamesBatting.keys.map(_ -> Statistic(date, 0.0, 0.0, 0.0)).toMap
+
+  var battingVolatility = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var onBaseVolatility = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var sluggingVolatility = Statistic(date, Double.NaN, Double.NaN, Double.NaN)
+  var fantasyScoresVolatility = FantasyGamesBatting.keys.map(_ -> Statistic(date, 0.0, 0.0, 0.0)).toMap
+
+  def gameDays(dates: Queue[DateTime]): Int = {
+    dates.distinct.size
+  }
+
+  def aggregateFantasyDay(statistic: (String, Queue[Statistic])): Statistic = {
+    statistic._2.foldLeft(Statistic(statistic._1, 0.0, 0.0, 0.0))({ case (x, y) => x.total = x.total + y.total; x.rh = x.rh + y.rh; x.lh = x.lh + y.lh; x })
+  }
 
   def accumulate(data: RunningHitterStatistics) = {
 
@@ -165,79 +174,115 @@ class RetrosheetHitterDay(var date: String, val id: String, val lineupPosition: 
     onBasePercentage = data.fullAccum.onBasePercentage.copy()
     sluggingPercentage = data.fullAccum.sluggingPercentage.copy()
 
+    val dateTime = CcyymmddSlashDelimFormatter.parseDateTime(date)
+    data.averagesDates.enqueue(dateTime)
+    data.volatilityDates.enqueue(dateTime)
+
     data.averagesData.lineupPosition.enqueue(lineupPosition)
     data.averagesData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.averagesData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
       RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly,
       LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.averagesData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
-    fantasyScores.map({ case (k, v) => data.averagesData.fantasy(k).enqueue(fantasyScores(k)) })
-    data.averagesData.strikeOuts.enqueue(Statistic(LHstrikeOut + RHstrikeOut, LHstrikeOut, RHstrikeOut))
-    data.averagesData.flyBalls.enqueue(Statistic(LHflyBall + RHflyBall, LHflyBall, RHflyBall))
-    data.averagesData.groundBalls.enqueue(Statistic(LHgroundBall + RHgroundBall, LHgroundBall, RHgroundBall))
-    data.averagesData.baseOnBalls.enqueue(Statistic(LHbaseOnBalls + RHbaseOnBalls, LHbaseOnBalls, RHbaseOnBalls))
+    fantasyScores.map({
+      case (k, v) =>
+        if (data.averagesData.fantasy(k).size > 0 && data.averagesData.fantasy(k).last.date == date) {
+          val fantasyDate = data.averagesData.fantasy(k).last
+          fantasyDate.total = fantasyDate.total + fantasyScores(k).total
+          fantasyDate.rh = fantasyDate.rh + fantasyScores(k).rh
+          fantasyDate.lh = fantasyDate.lh + fantasyScores(k).lh
+        } else data.averagesData.fantasy(k).enqueue(fantasyScores(k).copy())
+    })
+    data.averagesData.strikeOuts.enqueue(Statistic(date, LHstrikeOut + RHstrikeOut, LHstrikeOut, RHstrikeOut))
+    data.averagesData.flyBalls.enqueue(Statistic(date, LHflyBall + RHflyBall, LHflyBall, RHflyBall))
+    data.averagesData.groundBalls.enqueue(Statistic(date, LHgroundBall + RHgroundBall, LHgroundBall, RHgroundBall))
+    data.averagesData.baseOnBalls.enqueue(Statistic(date, LHbaseOnBalls + RHbaseOnBalls, LHbaseOnBalls, RHbaseOnBalls))
 
-    if (data.averagesData.ba.size > MovingAverageGameWindow) {
+    while (gameDays(data.averagesDates) > MovingAverageGameWindow) {
+      data.averagesDates.dequeue
       data.averagesData.lineupPosition.dequeue
       data.averagesData.ba.dequeue
       data.averagesData.obp.dequeue
       data.averagesData.slugging.dequeue
-      data.averagesData.fantasy.values.foreach(_.dequeue)
       data.averagesData.strikeOuts.dequeue
       data.averagesData.flyBalls.dequeue
       data.averagesData.groundBalls.dequeue
       data.averagesData.baseOnBalls.dequeue
     }
+    if (data.averagesData.fantasy(FanDuelName).size > MovingAverageGameWindow) {
+      data.averagesData.fantasy.values.foreach(_.dequeue)
+    }
 
-    val recentLHstrikeOuts = data.averagesData.strikeOuts.foldLeft(0.0)({ (x, y) => x + y.lh })
-    val recentLHflyBalls = data.averagesData.flyBalls.foldLeft(0.0)({ (x, y) => x + y.lh })
-    val recentLHgroundBalls = data.averagesData.groundBalls.foldLeft(0.0)({ (x, y) => x + y.lh })
-    val recentLHbaseOnBalls = data.averagesData.baseOnBalls.foldLeft(0.0)({ (x, y) => x + y.lh })
-    val recentRHstrikeOuts = data.averagesData.strikeOuts.foldLeft(0.0)({ (x, y) => x + y.rh })
-    val recentRHflyBalls = data.averagesData.flyBalls.foldLeft(0.0)({ (x, y) => x + y.rh })
-    val recentRHgroundBalls = data.averagesData.groundBalls.foldLeft(0.0)({ (x, y) => x + y.rh })
-    val recentRHbaseOnBalls = data.averagesData.baseOnBalls.foldLeft(0.0)({ (x, y) => x + y.rh })
-    val abResultTotals = Statistic(recentLHstrikeOuts + recentLHflyBalls + recentLHgroundBalls + recentLHbaseOnBalls + recentRHstrikeOuts + recentRHflyBalls + recentRHgroundBalls + recentRHbaseOnBalls,
-      recentLHstrikeOuts + recentLHflyBalls + recentLHgroundBalls + recentLHbaseOnBalls,
-      recentRHstrikeOuts + recentRHflyBalls + recentRHgroundBalls + recentRHbaseOnBalls)
+    val recentStrikeOuts = data.averagesData.strikeOuts.foldLeft((0.0, 0.0))({ (x, y) => (x._1 + y.rh, x._2 + y.lh) })
+    val recentRHstrikeOuts = recentStrikeOuts._1
+    val recentLHstrikeOuts = recentStrikeOuts._2
+    val recentFlyBalls = data.averagesData.flyBalls.foldLeft((0.0, 0.0))({ (x, y) => (x._1 + y.rh, x._2 + y.lh) })
+    val recentRHflyBalls = recentFlyBalls._1
+    val recentLHflyBalls = recentFlyBalls._2
+    val recentGroundBalls = data.averagesData.groundBalls.foldLeft((0.0, 0.0))({ (x, y) => (x._1 + y.rh, x._2 + y.lh) })
+    val recentRHgroundBalls = recentGroundBalls._1
+    val recentLHgroundBalls = recentGroundBalls._2
+    val recentBaseOnBalls = data.averagesData.baseOnBalls.foldLeft((0.0, 0.0))({ (x, y) => (x._1 + y.rh, x._2 + y.lh) })
+    val recentRHbaseOnBalls = recentBaseOnBalls._1
+    val recentLHbaseOnBalls = recentBaseOnBalls._2
+    val abResultTotals = Statistic(date, recentLHstrikeOuts + recentLHflyBalls + recentLHgroundBalls + recentLHbaseOnBalls + recentRHstrikeOuts + recentRHflyBalls + recentRHgroundBalls + recentRHbaseOnBalls,
+      recentRHstrikeOuts + recentRHflyBalls + recentRHgroundBalls + recentRHbaseOnBalls,
+      recentLHstrikeOuts + recentLHflyBalls + recentLHgroundBalls + recentLHbaseOnBalls)
 
-    if ((recentRHstrikeOuts + recentLHstrikeOuts) / abResultTotals.total > StyleThreshold) style = StrikeOut
-    else if ((recentRHflyBalls + recentLHflyBalls) / abResultTotals.total > StyleThreshold) style = FlyBall
-    else if ((recentRHgroundBalls + recentLHgroundBalls) / abResultTotals.total > StyleThreshold) style = GroundBall
-    else if ((recentRHbaseOnBalls + recentLHbaseOnBalls) / abResultTotals.total > StyleThreshold) style = BaseOnBalls
+    if ((recentRHstrikeOuts + recentLHstrikeOuts) / abResultTotals.total > StrikeOutBatterStyleThreshold) style = StrikeOut
+    else if ((recentRHflyBalls + recentLHflyBalls) / abResultTotals.total > FlyballBatterStyleThreshold) style = FlyBall
+    else if ((recentRHgroundBalls + recentLHgroundBalls) / abResultTotals.total > GroundballBatterStyleThreshold) style = GroundBall
+    else if ((recentRHbaseOnBalls + recentLHbaseOnBalls) / abResultTotals.total > BaseOnBallsBatterStyleThreshold) style = BaseOnBalls
 
-    if (recentLHstrikeOuts / abResultTotals.lh > StyleThreshold) LHstyle = StrikeOut
-    else if (recentLHflyBalls / abResultTotals.lh > StyleThreshold) LHstyle = FlyBall
-    else if (recentLHgroundBalls / abResultTotals.lh > StyleThreshold) LHstyle = GroundBall
-    else if (recentLHbaseOnBalls / abResultTotals.lh > StyleThreshold) LHstyle = BaseOnBalls
+    if (recentLHstrikeOuts / abResultTotals.lh > StrikeOutBatterStyleThreshold) LHstyle = StrikeOut
+    else if (recentLHflyBalls / abResultTotals.lh > FlyballBatterStyleThreshold) LHstyle = FlyBall
+    else if (recentLHgroundBalls / abResultTotals.lh > GroundballBatterStyleThreshold) LHstyle = GroundBall
+    else if (recentLHbaseOnBalls / abResultTotals.lh > BaseOnBallsBatterStyleThreshold) LHstyle = BaseOnBalls
 
-    if (recentRHstrikeOuts / abResultTotals.rh > StyleThreshold) RHstyle = StrikeOut
-    else if (recentRHflyBalls / abResultTotals.rh > StyleThreshold) RHstyle = FlyBall
-    else if (recentRHgroundBalls / abResultTotals.rh > StyleThreshold) RHstyle = GroundBall
-    else if (recentRHbaseOnBalls / abResultTotals.rh > StyleThreshold) RHstyle = BaseOnBalls
+    if (recentRHstrikeOuts / abResultTotals.rh > StrikeOutBatterStyleThreshold) RHstyle = StrikeOut
+    else if (recentRHflyBalls / abResultTotals.rh > FlyballBatterStyleThreshold) RHstyle = FlyBall
+    else if (recentRHgroundBalls / abResultTotals.rh > GroundballBatterStyleThreshold) RHstyle = GroundBall
+    else if (recentRHbaseOnBalls / abResultTotals.rh > BaseOnBallsBatterStyleThreshold) RHstyle = BaseOnBalls
 
     battingAverageMov = queueMean(data.averagesData.ba, false)
     onBasePercentageMov = queueMean(data.averagesData.obp, false)
     sluggingPercentageMov = queueMean(data.averagesData.slugging, false)
-    fantasyScoresMov = fantasyScoresMov.map({ case (k, v) => k -> queueMeanSimple(data.averagesData.fantasy(k), false) }).toMap
+    fantasyScoresMov = fantasyScoresMov.map({
+      case (k, v) =>
+        k -> queueMeanSimple(data.averagesData.fantasy(k), false)
+    }).toMap
 
     data.volatilityData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.volatilityData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
       RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly,
       LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.volatilityData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
-    data.volatilityData.fantasy.map({ case (k, v) => v.enqueue(fantasyScores(k)) })
+    fantasyScores.map({
+      case (k, v) =>
+        if (data.volatilityData.fantasy(k).size > 0 && data.volatilityData.fantasy(k).last.date == date) {
+          val fantasyDate = data.volatilityData.fantasy(k).last
+          fantasyDate.total = fantasyDate.total + fantasyScores(k).total
+          fantasyDate.rh = fantasyDate.rh + fantasyScores(k).rh
+          fantasyDate.lh = fantasyDate.lh + fantasyScores(k).lh
+        } else data.volatilityData.fantasy(k).enqueue(fantasyScores(k).copy())
+    })
 
-    if (data.volatilityData.ba.size > VolatilityGameWindow) {
+    while (gameDays(data.volatilityDates) > VolatilityGameWindow) {
+      data.volatilityDates.dequeue
       data.volatilityData.ba.dequeue
       data.volatilityData.obp.dequeue
       data.volatilityData.slugging.dequeue
+    }
+    if (data.volatilityData.fantasy(FanDuelName).size > VolatilityGameWindow) {
       data.volatilityData.fantasy.values.foreach(_.dequeue)
     }
-    battingVolatility = movingVolatility(data.volatilityData.ba, true)
-    onBaseVolatility = movingVolatility(data.volatilityData.obp, true)
-    sluggingVolatility = movingVolatility(data.volatilityData.slugging, true)
-    fantasyScoresVolatility = fantasyScoresVolatility.map({ case (k, v) => k -> movingVolatilitySimple(data.volatilityData.fantasy(k), true) }).toMap
+    battingVolatility = movingVolatility(data.volatilityData.ba, false)
+    onBaseVolatility = movingVolatility(data.volatilityData.obp, false)
+    sluggingVolatility = movingVolatility(data.volatilityData.slugging, false)
+    fantasyScoresVolatility = fantasyScoresVolatility.map({
+      case (k, v) =>
+        k -> movingVolatilitySimple(data.volatilityData.fantasy(k), false)
+    }).toMap
 
     // Lineup position regime
     val positionDoubles = data.averagesData.lineupPosition.filter { _ != 0 } map { _.toDouble }
