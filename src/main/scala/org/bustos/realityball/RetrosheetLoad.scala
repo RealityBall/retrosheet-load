@@ -342,7 +342,7 @@ object RetrosheetLoad extends App {
         hitterVolatilityStats ++= volStat
         print(".")
         val fantasyStat = sortedHistory.map({ day =>
-          (day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex,
+          HitterFantasyDaily(day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex, day.productionInterval,
             someOrNone(day.fantasyScores(FanDuelName).rh), someOrNone(day.fantasyScores(FanDuelName).lh), someOrNone(day.fantasyScores(FanDuelName).total),
             someOrNone(day.fantasyScores(DraftKingsName).rh), someOrNone(day.fantasyScores(DraftKingsName).lh), someOrNone(day.fantasyScores(DraftKingsName).total),
             someOrNone(day.fantasyScores(DraftsterName).rh), someOrNone(day.fantasyScores(DraftsterName).lh), someOrNone(day.fantasyScores(DraftsterName).total))

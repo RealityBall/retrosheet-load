@@ -21,6 +21,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
   def year: String = date.substring(0, 4)
 
   var lineupPositionRegime = 0
+  var productionInterval = 0
   var style: String = ""
 
   var RHplateAppearance: Int = 0
@@ -284,6 +285,27 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
         k -> movingVolatilitySimple(data.volatilityData.fantasy(k), false)
     }).toMap
 
+    // Days between fantasy score production
+    val productionThreshold = fantasyScoresMov(FanDuelName).total - fantasyScoresVolatility(FanDuelName).total * 0.1
+    if (data.averagesData.fantasy(FanDuelName).head.total > productionThreshold) {
+      def breaksThreshold(x: Statistic): Boolean = {
+        if (x.total > productionThreshold) {
+          true
+        } else false
+      }
+
+      productionInterval = data.averagesData.fantasy(FanDuelName).tail.indexWhere(breaksThreshold)
+      if (id == "cabrm001") {
+        println(date)
+        println("Mov: " + fantasyScoresMov(FanDuelName).total)
+        println("Vol: " + fantasyScoresVolatility(FanDuelName).total)
+        println(data.averagesData.fantasy(FanDuelName).reverse)
+        println(productionInterval)
+      }
+      if (productionInterval < 0) productionInterval = 0
+      else productionInterval = productionInterval + 1
+    }
+
     // Lineup position regime
     val positionDoubles = data.averagesData.lineupPosition.filter { _ != 0 } map { _.toDouble }
     val averageLineupPosition = mean(positionDoubles)
@@ -318,9 +340,14 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
       else LHatBat = LHatBat + 1
     }
 
-    if (facingRighty) RHplateAppearance = RHplateAppearance + 1
-    else LHplateAppearance = LHplateAppearance + 1
+    if (play.plateAppearance) {
+      if (facingRighty) RHplateAppearance = RHplateAppearance + 1
+      else LHplateAppearance = LHplateAppearance + 1
+    }
 
+    if (play.outs > 0) {
+      fantasyScores = fantasyScores.map({ case (k, v) => (k -> updateFantasyScore("OUT", 1, k, v, facingRighty)) })
+    }
     if (play.isSingle) {
       if (facingRighty) {
         RHsingle = RHsingle + 1
