@@ -260,6 +260,11 @@ object RetrosheetLoad extends App {
     }
   }
 
+  def emptyRunningHitterData: RunningHitterData = {
+    RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap,
+      Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic])
+  }
+
   def computeStatistics = {
     logger.info("Computing Running Batter Statistics.")
     //val startTime = System.currentTimeMillis
@@ -267,14 +272,20 @@ object RetrosheetLoad extends App {
       print(".")
       val sortedHistory = playerHistory.sortBy { x => x.date }
       val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", "", 0, 0, "", 0)
-      val movingAverageData = RunningHitterStatistics(currentHitterDay,
-        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap,
-          Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic]), Queue.empty[DateTime],
-        RunningHitterData(Queue.empty[Int], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], Queue.empty[StatisticInputs], FantasyGamesBatting.keys.map((_ -> Queue.empty[Statistic])).toMap,
-          Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic], Queue.empty[Statistic]), Queue.empty[DateTime])
+      val movingAverageData = RunningHitterStatistics(currentHitterDay, emptyRunningHitterData, Queue.empty[DateTime], emptyRunningHitterData, Queue.empty[DateTime], Map.empty[String, Double])
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
+      sortedHistory.foldLeft(CcyymmddSlashDelimFormatter.parseDateTime(sortedHistory.head.date))({ (x, y) =>
+        if (y.pitcherIndex == 1 && movingAverageData.fantasyProduction.contains(y.date)) {
+          if (movingAverageData.fantasyProduction(y.date) > 2.0) {
+            val newDate = CcyymmddSlashDelimFormatter.parseDateTime(y.date)
+            y.productionInterval = Days.daysBetween(x.withTimeAtStartOfDay(), newDate.withTimeAtStartOfDay()).getDays
+            newDate
+          } else x
+        } else x
+      })
     }
     //println(System.currentTimeMillis - startTime)
+    println(".")
     logger.info("Computing Running Pitcher Statistics.")
     pitcherSummaries.values.map { playerHistory =>
       print(".")

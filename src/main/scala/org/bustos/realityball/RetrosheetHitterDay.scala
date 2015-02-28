@@ -11,7 +11,8 @@ object RetrosheetHitterDay {
   val MovingAverageGameWindow = 25
   val VolatilityGameWindow = 100
 
-  case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, averagesDates: Queue[DateTime], volatilityData: RunningHitterData, volatilityDates: Queue[DateTime])
+  case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, averagesDates: Queue[DateTime],
+                                     volatilityData: RunningHitterData, volatilityDates: Queue[DateTime], var fantasyProduction: Map[String, Double])
 }
 
 class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: String, var pitcherIndex: Int, val lineupPosition: Int, val gameId: String, val side: Int) extends StatisticsTrait {
@@ -287,23 +288,9 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
 
     // Days between fantasy score production
     val productionThreshold = fantasyScoresMov(FanDuelName).total - fantasyScoresVolatility(FanDuelName).total * 0.1
-    if (data.averagesData.fantasy(FanDuelName).head.total > productionThreshold) {
-      def breaksThreshold(x: Statistic): Boolean = {
-        if (x.total > productionThreshold) {
-          true
-        } else false
-      }
-
-      productionInterval = data.averagesData.fantasy(FanDuelName).tail.indexWhere(breaksThreshold)
-      if (id == "cabrm001") {
-        println(date)
-        println("Mov: " + fantasyScoresMov(FanDuelName).total)
-        println("Vol: " + fantasyScoresVolatility(FanDuelName).total)
-        println(data.averagesData.fantasy(FanDuelName).reverse)
-        println(productionInterval)
-      }
-      if (productionInterval < 0) productionInterval = 0
-      else productionInterval = productionInterval + 1
+    if (!data.fantasyProduction.contains(date)) data.fantasyProduction += (date -> data.averagesData.fantasy(FanDuelName).head.total)
+    else {
+      data.fantasyProduction = data.fantasyProduction.updated(date, { data.averagesData.fantasy(FanDuelName).head.total + data.fantasyProduction(date) })
     }
 
     // Lineup position regime

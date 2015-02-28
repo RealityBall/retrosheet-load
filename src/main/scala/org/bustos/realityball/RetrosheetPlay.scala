@@ -168,7 +168,7 @@ class RetrosheetPlay(val pitchSeq: String, val play: String) {
 
   val runsScored: Boolean = !scoringRunners.isEmpty
 
-  val plateAppearance: Boolean = !play.startsWith("NP") && !play.startsWith("PO")
+  val plateAppearance: Boolean = !play.startsWith("NP") && !play.startsWith("PO") && !play.startsWith("WP") && !play.startsWith("DI")
 
   val atBat: Boolean = !play.contains("SH") && !play.contains("SF") &&
     !play.startsWith("W") && !play.startsWith("WP") &&
