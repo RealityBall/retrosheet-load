@@ -274,14 +274,21 @@ object RetrosheetLoad extends App {
       val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", "", 0, 0, "", 0)
       val movingAverageData = RunningHitterStatistics(currentHitterDay, emptyRunningHitterData, Queue.empty[DateTime], emptyRunningHitterData, Queue.empty[DateTime], Map.empty[String, Double])
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
-      sortedHistory.foldLeft(CcyymmddSlashDelimFormatter.parseDateTime(sortedHistory.head.date))({ (x, y) =>
-        if (y.pitcherIndex == 1 && movingAverageData.fantasyProduction.contains(y.date)) {
-          if (movingAverageData.fantasyProduction(y.date) > 2.0) {
-            val newDate = CcyymmddSlashDelimFormatter.parseDateTime(y.date)
-            y.productionInterval = Days.daysBetween(x.withTimeAtStartOfDay(), newDate.withTimeAtStartOfDay()).getDays
-            newDate
-          } else x
-        } else x
+      sortedHistory.foldLeft(Queue.empty[Double])({ (x, y) =>
+        //val productionThreshold = y.fantasyScoresMov(FanDuelName).total - y.fantasyScoresVolatility(FanDuelName).total * 0.25
+        val productionThreshold = 2.0
+        if (movingAverageData.fantasyProduction(y.date) > productionThreshold) x.enqueue(1.0)
+        else x.enqueue(0.0)
+        while (x.size > VolatilityWindow) {
+          x.dequeue
+        }
+
+        val running = x.foldLeft((0.0, 0))({ (run, prod) =>
+          val countIt = if (prod == 1.0) VolatilityExponentialWeights.reverse(run._2) else 0.0
+          (run._1 + countIt, run._2 + 1)
+        })
+        y.productionRate = running._1
+        x
       })
     }
     //println(System.currentTimeMillis - startTime)
@@ -353,7 +360,7 @@ object RetrosheetLoad extends App {
         hitterVolatilityStats ++= volStat
         print(".")
         val fantasyStat = sortedHistory.map({ day =>
-          HitterFantasyDaily(day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex, day.productionInterval,
+          HitterFantasyDaily(day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex, someOrNone(day.productionRate),
             someOrNone(day.fantasyScores(FanDuelName).rh), someOrNone(day.fantasyScores(FanDuelName).lh), someOrNone(day.fantasyScores(FanDuelName).total),
             someOrNone(day.fantasyScores(DraftKingsName).rh), someOrNone(day.fantasyScores(DraftKingsName).lh), someOrNone(day.fantasyScores(DraftKingsName).total),
             someOrNone(day.fantasyScores(DraftsterName).rh), someOrNone(day.fantasyScores(DraftsterName).lh), someOrNone(day.fantasyScores(DraftsterName).total))

@@ -8,9 +8,6 @@ import scala.collection.mutable.Queue
 
 object RetrosheetHitterDay {
 
-  val MovingAverageGameWindow = 25
-  val VolatilityGameWindow = 100
-
   case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, averagesDates: Queue[DateTime],
                                      volatilityData: RunningHitterData, volatilityDates: Queue[DateTime], var fantasyProduction: Map[String, Double])
 }
@@ -22,7 +19,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
   def year: String = date.substring(0, 4)
 
   var lineupPositionRegime = 0
-  var productionInterval = 0
+  var productionRate = 0.0
   var style: String = ""
 
   var RHplateAppearance: Int = 0
@@ -200,7 +197,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
     data.averagesData.groundBalls.enqueue(Statistic(date, LHgroundBall + RHgroundBall, LHgroundBall, RHgroundBall))
     data.averagesData.baseOnBalls.enqueue(Statistic(date, LHbaseOnBalls + RHbaseOnBalls, LHbaseOnBalls, RHbaseOnBalls))
 
-    while (gameDays(data.averagesDates) > MovingAverageGameWindow) {
+    while (gameDays(data.averagesDates) > MovingAverageWindow) {
       data.averagesDates.dequeue
       data.averagesData.lineupPosition.dequeue
       data.averagesData.ba.dequeue
@@ -211,7 +208,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
       data.averagesData.groundBalls.dequeue
       data.averagesData.baseOnBalls.dequeue
     }
-    if (data.averagesData.fantasy(FanDuelName).size > MovingAverageGameWindow) {
+    if (data.averagesData.fantasy(FanDuelName).size > MovingAverageWindow) {
       data.averagesData.fantasy.values.foreach(_.dequeue)
     }
 
@@ -269,13 +266,13 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
         } else data.volatilityData.fantasy(k).enqueue(fantasyScores(k).copy())
     })
 
-    while (gameDays(data.volatilityDates) > VolatilityGameWindow) {
+    while (gameDays(data.volatilityDates) > VolatilityWindow) {
       data.volatilityDates.dequeue
       data.volatilityData.ba.dequeue
       data.volatilityData.obp.dequeue
       data.volatilityData.slugging.dequeue
     }
-    if (data.volatilityData.fantasy(FanDuelName).size > VolatilityGameWindow) {
+    if (data.volatilityData.fantasy(FanDuelName).size > VolatilityWindow) {
       data.volatilityData.fantasy.values.foreach(_.dequeue)
     }
     battingVolatility = movingVolatility(data.volatilityData.ba, false)
@@ -287,7 +284,6 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
     }).toMap
 
     // Days between fantasy score production
-    val productionThreshold = fantasyScoresMov(FanDuelName).total - fantasyScoresVolatility(FanDuelName).total * 0.1
     if (!data.fantasyProduction.contains(date)) data.fantasyProduction += (date -> data.averagesData.fantasy(FanDuelName).head.total)
     else {
       data.fantasyProduction = data.fantasyProduction.updated(date, { data.averagesData.fantasy(FanDuelName).head.total + data.fantasyProduction(date) })

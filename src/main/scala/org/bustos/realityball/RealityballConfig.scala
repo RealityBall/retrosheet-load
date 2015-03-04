@@ -29,11 +29,21 @@ object RealityballConfig {
 
   val MovingAverageWindow = 25
   val TeamMovingAverageWindow = 10
+  val VolatilityWindow = 100
 
   val MovingAverageExponentialWeights: List[Double] = {
     val alpha = 0.9
 
     val rawWeights = (0 to MovingAverageWindow - 1).map({ x => pow(alpha, x.toDouble) })
+    val totalWeight = rawWeights.foldLeft(0.0)(_ + _)
+    rawWeights.map(_ / totalWeight).toList
+  }
+  val MovingAverateTotalWeight: Double = MovingAverageExponentialWeights.foldLeft(0.0)(_ + _)
+
+  val VolatilityExponentialWeights: List[Double] = {
+    val alpha = 0.97
+
+    val rawWeights = (0 to VolatilityWindow - 1).map({ x => pow(alpha, x.toDouble) })
     val totalWeight = rawWeights.foldLeft(0.0)(_ + _)
     rawWeights.map(_ / totalWeight).toList
   }
