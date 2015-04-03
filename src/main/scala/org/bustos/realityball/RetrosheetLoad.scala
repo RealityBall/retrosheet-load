@@ -275,9 +275,7 @@ object RetrosheetLoad extends App {
       val movingAverageData = RunningHitterStatistics(currentHitterDay, emptyRunningHitterData, Queue.empty[DateTime], emptyRunningHitterData, Queue.empty[DateTime], Map.empty[String, Double])
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
       sortedHistory.foldLeft(Queue.empty[Double])({ (x, y) =>
-        //val productionThreshold = y.fantasyScoresMov(FanDuelName).total
-        val productionThreshold = 3.0
-        if (movingAverageData.fantasyProduction(y.date) > productionThreshold) x.enqueue(1.0)
+        if (movingAverageData.fantasyProduction(y.date) > ProductionThreshold) x.enqueue(1.0)
         else x.enqueue(0.0)
         while (x.size > MovingAverageWindow) {
           x.dequeue
