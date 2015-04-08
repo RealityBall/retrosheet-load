@@ -30,6 +30,7 @@ class CrunchtimeBaseballMapping {
       val reader = CSVReader.open(new File(DataRoot + "/crunchtimeBaseball/master.csv"))
       reader.allWithHeaders.foreach { line =>
         idMappingTable += IdMapping(line("mlb_id"), line("mlb_name"), line("mlb_team"),
+          line("mlb_pos"), line("bats"), line("throws"),
           line("bref_id"), line("bref_name"),
           line("espn_id"), line("espn_name"),
           line("retrosheet_id"), line("retrosheet_name"))

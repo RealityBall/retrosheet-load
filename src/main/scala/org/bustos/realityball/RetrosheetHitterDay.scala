@@ -286,7 +286,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
     // Days between fantasy score production
     if (!data.fantasyProduction.contains(date)) data.fantasyProduction += (date -> data.averagesData.fantasy(FanDuelName).head.total)
     else {
-      data.fantasyProduction = data.fantasyProduction.updated(date, { data.averagesData.fantasy(FanDuelName).head.total + data.fantasyProduction(date) })
+      data.fantasyProduction = data.fantasyProduction.updated(date, { data.averagesData.fantasy(FanDuelName).last.total + data.fantasyProduction(date) })
     }
 
     // Lineup position regime

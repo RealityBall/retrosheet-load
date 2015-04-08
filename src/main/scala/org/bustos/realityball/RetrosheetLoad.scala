@@ -30,7 +30,7 @@ object RetrosheetLoad extends App {
   val playExpression: Regex = "play,(.*),(.*),(.*),(.*),(.*),(.*)".r
   val playerRoster: Regex = "(.*),(.*),(.*),([BRL]),([BRL]),(.*),(.*)".r
   val teamExpression: Regex = "(.*),(.*),(.*),(.*)".r
-  val teamMetaExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)".r
+  val teamMetaExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)".r
   val erExpression: Regex = "data,er,(.*),(.*)".r
 
   val tables: Map[String, TableQuery[_ <: slick.driver.MySQLDriver.Table[_]]] = Map(
@@ -87,11 +87,11 @@ object RetrosheetLoad extends App {
     logger.info("Teams for " + year)
     val teamFile = new File(DataRoot + "retrosheet/" + year + "eve/TEAM" + year)
     val teamMetaFile = new File(DataRoot + "generatedData/teamMetaData.csv")
-    val metaData: Map[String, (String, String, String, String, String, String, String)] = {
+    val metaData: Map[String, (String, String, String, String, String, String, String, String)] = {
       Source.fromFile(teamMetaFile).getLines.map {
         _ match {
-          case teamMetaExpression(retrosheetId, site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName) => (retrosheetId -> (site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName))
-          case _ => ("" -> ("", "", "", "", "", "", ""))
+          case teamMetaExpression(retrosheetId, site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName, coversComFullName) => (retrosheetId -> (site, zipCode, mlbComId, mlbComName, timeZone, coversComId, coversComName, coversComFullName))
+          case _ => ("" -> ("", "", "", "", "", "", "", ""))
         }
       }.toMap
     }
@@ -99,7 +99,7 @@ object RetrosheetLoad extends App {
       Source.fromFile(teamFile).getLines.foreach {
         _ match {
           case teamExpression(mnemonic, league, city, name) => teamsTable += Team(year, mnemonic, league, city, name, metaData(mnemonic)._1, metaData(mnemonic)._2, metaData(mnemonic)._3,
-            metaData(mnemonic)._4, metaData(mnemonic)._5, metaData(mnemonic)._6, metaData(mnemonic)._7)
+            metaData(mnemonic)._4, metaData(mnemonic)._5, metaData(mnemonic)._6, metaData(mnemonic)._7, metaData(mnemonic)._8)
           case _ =>
         }
       }
@@ -270,18 +270,18 @@ object RetrosheetLoad extends App {
     //val startTime = System.currentTimeMillis
     batterSummaries.values.map { playerHistory =>
       print(".")
-      val sortedHistory = playerHistory.sortBy { x => x.date }
+      val sortedHistory = playerHistory.sortBy { x => (x.date, x.pitcherIndex) }
       val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", "", 0, 0, "", 0)
       val movingAverageData = RunningHitterStatistics(currentHitterDay, emptyRunningHitterData, Queue.empty[DateTime], emptyRunningHitterData, Queue.empty[DateTime], Map.empty[String, Double])
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
-      sortedHistory.foldLeft(Queue.empty[Double])({ (x, y) =>
+      sortedHistory.filter(_.pitcherIndex == 1).foldLeft(Queue.empty[Double])({ (x, y) =>
         if (movingAverageData.fantasyProduction(y.date) > ProductionThreshold) x.enqueue(1.0)
         else x.enqueue(0.0)
-        while (x.size > MovingAverageWindow) {
+        while (x.size > MovingAverageWindow / 2) {
           x.dequeue
         }
         val running = x.foldLeft(0.0)({ (run, prod) => run + prod })
-        y.productionRate = running / MovingAverageWindow
+        y.productionRate = running / (MovingAverageWindow / 2)
         x
       })
     }
