@@ -30,8 +30,8 @@ class RetrosheetGameInfo(val id: String) {
       case "fieldcond"  => conditions.fieldcond = items(2)
       case "precip"     => conditions.precip = items(2)
       case "sky"        => conditions.sky = items(2)
-      case "timeofgame" => scoring.timeofgame = items(2).toInt
-      case "attendance" => scoring.attendance = items(2).toInt
+      case "timeofgame" => scoring.timeofgame = items(2).toFloat.toInt
+      case "attendance" => scoring.attendance = items(2).toFloat.toInt
       case "wp"         => scoring.wp = items(2)
       case "lp"         => scoring.lp = items(2)
       case "save"       => if (items.length > 2) scoring.save = items(2)

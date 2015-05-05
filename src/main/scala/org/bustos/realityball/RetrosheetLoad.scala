@@ -107,18 +107,24 @@ object RetrosheetLoad extends App {
   }
 
   def playersForYear(year: String): Map[String, Player] = {
-    var players = Map.empty[String, Player]
-    (new File(DataRoot + "retrosheet/" + year + "eve")).listFiles.filter(x => x.getName.endsWith(".ROS")).map {
-      {
-        Source.fromFile(_).getLines.foreach {
-          _ match {
-            case playerRoster(id, lastName, firstName, hits, throwsWith, team, position) => players += (id -> Player(id, year, lastName, firstName, hits, throwsWith, team, position))
-            case _ =>
-          }
-        }
+    if (year == "2015") {
+      db.withTransaction { implicit session =>
+        playersTable.filter({ x => x.year === "2015" || x.year === "2014" ||
+          x.id === "blazm001" || x.id === "betar001"}).list.map { x =>
+          (x.id -> x)
+        } toMap
       }
     }
-    players
+    else {
+      (new File(DataRoot + "retrosheet/" + year + "eve")).listFiles.filter(x => x.getName.endsWith(".ROS")).map({
+        Source.fromFile(_).getLines.map {
+          _ match {
+            case playerRoster(id, lastName, firstName, hits, throwsWith, team, position) => (id -> Player(id, year, lastName, firstName, hits, throwsWith, team, position))
+            case _ => ("" -> Player("", "", "", "", "", "", "", ""))
+          }
+        } toList
+      }).flatten.toMap
+    }
   }
 
   def dateFromString(dateString: String): DateTime = {
@@ -126,7 +132,12 @@ object RetrosheetLoad extends App {
   }
 
   def processYear(year: String) = {
-    val eventFiles = (new File(DataRoot + "retrosheet/" + year + "eve")).listFiles.filter(x => x.getName.endsWith(".EVN") || x.getName.endsWith(".EVA"))
+    val players = playersForYear(year)
+
+    val eventFiles =
+      if (year == "2015") (new File(DataRoot + "generatedData/" + year)).listFiles.filter(x => x.getName.endsWith(".eve"))
+      else (new File(DataRoot + "retrosheet/" + year + "eve")).listFiles.filter(x => x.getName.endsWith(".EVN") || x.getName.endsWith(".EVA"))
+
     var gamePitchers = Map.empty[String, RetrosheetPitcherDay]
     var games = List.empty[RetrosheetGameInfo]
     var ballparks = Map.empty[String, BallparkDaily]
@@ -159,9 +170,6 @@ object RetrosheetLoad extends App {
       }
       batterSummaries(id).head
     }
-
-    processTeams(year)
-    val players = playersForYear(year)
 
     eventFiles.map { f =>
       println("")
@@ -253,8 +261,10 @@ object RetrosheetLoad extends App {
       gameConditionsTable ++= games.map(_.conditions)
       logger.info("Game Scoring for " + year)
       gameScoringTable ++= games.map(_.scoring)
-      logger.info("Players for " + year)
-      playersTable ++= players.values.map({ player => Player(player.id, year, player.lastName, player.firstName, player.batsWith, player.throwsWith, player.team, player.position) })
+      if (year.toInt < 2015) {
+        logger.info("Players for " + year)
+        playersTable ++= players.values.map({ player => Player(player.id, year, player.lastName, player.firstName, player.batsWith, player.throwsWith, player.team, player.position) })
+      }
       logger.info("Ballpark dailies for " + year)
       ballparkDailiesTable ++= ballparks.values
     }
@@ -411,12 +421,16 @@ object RetrosheetLoad extends App {
     }
   }
 
-  val crunchtime = new CrunchtimeBaseballMapping
-  crunchtime.processIdMappings
-  maintainDatabase
-  processBallparks
   var batterSummaries = Map.empty[String, List[RetrosheetHitterDay]]
   var pitcherSummaries = Map.empty[String, List[RetrosheetPitcherDay]]
+  maintainDatabase
+  (2013 to 2015).map ({ year =>
+    if (year.toString != "2015") processTeams(year.toString)
+  })
+  val crunchtime = new CrunchtimeBaseballMapping
+  crunchtime.processIdMappings
+  processBallparks
+  //(2013 to 2015).map { i => processYear(i.toString) }
   (2013 to 2014).map { i => processYear(i.toString) }
   computeStatistics
   persist

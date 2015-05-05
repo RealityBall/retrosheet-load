@@ -19,6 +19,8 @@ class CrunchtimeBaseballMapping {
     logger.info("Updating id mapping codes...")
 
     implicit val codec = Codec("UTF-8")
+    val nameExpression = """(.*?) (.*)""".r
+
     codec.onMalformedInput(CodingErrorAction.REPLACE)
     codec.onUnmappableCharacter(CodingErrorAction.REPLACE)
 
@@ -34,6 +36,19 @@ class CrunchtimeBaseballMapping {
           line("bref_id"), line("bref_name"),
           line("espn_id"), line("espn_name"),
           line("retrosheet_id"), line("retrosheet_name"))
+        val retroId = if (line("retrosheet_id") == "") line("mlb_id")
+        else line("retrosheet_id")
+        val name = line("mlb_name") match { case nameExpression(first, last) => List(first, last) }
+        val mlbTeam = {
+          if (line("mlb_team") == "WSH") "WAS"
+          else if (line("mlb_team") == "LAD") "LA"
+          else if (line("mlb_team") == "LAA") "ANA"
+          else line("mlb_team")
+        }
+        if (mlbTeam != "") {
+          val retroTeam = teamsTable.filter({_.mlbComId === mlbTeam}).map(_.mnemonic).list.head
+          playersTable += Player(retroId, "2015", name(1), name(0), line("bats"), line("throws"), retroTeam, line("mlb_pos"))
+        }
       }
     }
   }
