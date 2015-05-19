@@ -1,8 +1,9 @@
 package org.bustos.realityball
 
+import org.bustos.realityball.common.RealityballRecords._
+
 class RetrosheetGameInfo(val id: String) {
 
-  import RealityballRecords._
 
   val game = Game(id, "", "", "", "", 0, "", "")
   val conditions = GameConditions(id, "", "", false, 0, "", 0, "", "", "")
@@ -25,8 +26,8 @@ class RetrosheetGameInfo(val id: String) {
       case "ump3b"      => scoring.ump3b = items(2)
       case "howscored"  => scoring.howscored = items(2)
       case "temp"       => if (items(2).forall(_.isDigit)) conditions.temp = items(2).toInt
-      case "winddir"    => conditions.winddir = items(2)
-      case "windspeed"  => conditions.windspeed = items(2).toInt
+      case "winddir"    => if (items.size > 2) conditions.winddir = items(2) else ""
+      case "windspeed"  => if (items.size > 2) conditions.windspeed = items(2).toInt else ""
       case "fieldcond"  => conditions.fieldcond = items(2)
       case "precip"     => conditions.precip = items(2)
       case "sky"        => conditions.sky = items(2)

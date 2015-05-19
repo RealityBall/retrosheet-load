@@ -1,8 +1,8 @@
 package org.bustos.realityball
 
 import FantasyScoreSheet._
-import RealityballRecords._
-import RealityballConfig._
+import org.bustos.realityball.common.RealityballRecords._
+import org.bustos.realityball.common.RealityballConfig._
 import org.joda.time._
 import scala.collection.mutable.Queue
 
@@ -10,6 +10,7 @@ object RetrosheetHitterDay {
 
   case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, averagesDates: Queue[DateTime],
                                      volatilityData: RunningHitterData, volatilityDates: Queue[DateTime], var fantasyProduction: Map[String, Double])
+
 }
 
 class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: String, var pitcherIndex: Int, val lineupPosition: Int, val gameId: String, val side: Int) extends StatisticsTrait {
@@ -183,7 +184,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
       RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly,
       LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.averagesData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
-    fantasyScores.map({
+    fantasyScores.foreach({
       case (k, v) =>
         if (data.averagesData.fantasy(k).size > 0 && data.averagesData.fantasy(k).last.date == date) {
           val fantasyDate = data.averagesData.fantasy(k).last
@@ -251,12 +252,17 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
         k -> queueMeanSimple(data.averagesData.fantasy(k), false)
     }).toMap
 
+    data.volatilityData.ba.enqueue(StatisticInputs(battingAverageMov.total, 1.0, battingAverageMov.rh, 1.0, battingAverageMov.lh, 1.0))
+    data.volatilityData.obp.enqueue(StatisticInputs(onBasePercentageMov.total, 1.0, onBasePercentageMov.rh, 1.0, onBasePercentageMov.lh, 1.0))
+    data.volatilityData.slugging.enqueue(StatisticInputs(sluggingPercentageMov.total, 1.0, sluggingPercentageMov.rh, 1.0, sluggingPercentageMov.lh, 1.0))
+    /*
     data.volatilityData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))
     data.volatilityData.obp.enqueue(StatisticInputs(LHhits + LHbaseOnBalls + LHhitByPitch + RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly + LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly,
       RHhits + RHbaseOnBalls + RHhitByPitch, RHatBat + RHbaseOnBalls + RHhitByPitch + RHsacFly,
       LHhits + LHbaseOnBalls + LHhitByPitch, LHatBat + LHbaseOnBalls + LHhitByPitch + LHsacFly))
     data.volatilityData.slugging.enqueue(StatisticInputs(LHtotalBases + RHtotalBases, LHatBat + RHatBat, RHtotalBases, RHatBat, LHtotalBases, LHatBat))
-    fantasyScores.map({
+    */
+    fantasyScores.foreach({
       case (k, v) =>
         if (data.volatilityData.fantasy(k).size > 0 && data.volatilityData.fantasy(k).last.date == date) {
           val fantasyDate = data.volatilityData.fantasy(k).last
@@ -275,6 +281,9 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
     if (data.volatilityData.fantasy(FanDuelName).size > VolatilityWindow) {
       data.volatilityData.fantasy.values.foreach(_.dequeue)
     }
+    //if (id == "cabrm001" && date == "2015/05/01") {
+    //  println("")
+    //}
     battingVolatility = movingVolatility(data.volatilityData.ba, false)
     onBaseVolatility = movingVolatility(data.volatilityData.obp, false)
     sluggingVolatility = movingVolatility(data.volatilityData.slugging, false)

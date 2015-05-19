@@ -1,6 +1,6 @@
 package org.bustos.realityball
 
-import RealityballRecords.BallparkDaily
+import org.bustos.realityball.common.RealityballRecords.BallparkDaily
 
 object RetrosheetPlay {
   /*

@@ -2,8 +2,8 @@ package org.bustos.realityball
 
 import org.joda.time._
 import FantasyScoreSheet._
-import RealityballRecords.{ PitcherDaily, Statistic }
-import RealityballConfig._
+import org.bustos.realityball.common.RealityballRecords.{ PitcherDaily, Statistic }
+import org.bustos.realityball.common.RealityballConfig._
 
 object RetrosheetPitcherDay {
 

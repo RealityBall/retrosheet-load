@@ -7,8 +7,8 @@ import java.nio.charset.CodingErrorAction
 import java.io.File
 import scala.io.Codec
 import scala.io.Source
-import RealityballConfig._
-import RealityballRecords._
+import org.bustos.realityball.common.RealityballConfig._
+import org.bustos.realityball.common.RealityballRecords._
 import com.github.tototoshi.csv._
 
 class CrunchtimeBaseballMapping {
@@ -23,6 +23,10 @@ class CrunchtimeBaseballMapping {
 
     codec.onMalformedInput(CodingErrorAction.REPLACE)
     codec.onUnmappableCharacter(CodingErrorAction.REPLACE)
+
+    val hasLatest = db.withSession { implicit session =>
+      playersTable.filter(_.year === "2015").list.nonEmpty
+    }
 
     db.withSession { implicit session =>
       if (!MTable.getTables("idMapping").list.isEmpty) {
@@ -45,7 +49,7 @@ class CrunchtimeBaseballMapping {
           else if (line("mlb_team") == "LAA") "ANA"
           else line("mlb_team")
         }
-        if (mlbTeam != "") {
+        if (mlbTeam != "" && !hasLatest) {
           val retroTeam = teamsTable.filter({_.mlbComId === mlbTeam}).map(_.mnemonic).list.head
           playersTable += Player(retroId, "2015", name(1), name(0), line("bats"), line("throws"), retroTeam, line("mlb_pos"))
         }
