@@ -20,6 +20,14 @@ class CrunchtimeBaseballMapping {
 
     implicit val codec = Codec("UTF-8")
     val nameExpression = """(.*?) (.*)""".r
+    val juanCarlosExpression = """Juan Carlos (.*)""".r
+    val yeanCarlosExpression = """Yean Carlos (.*)""".r
+    val juanPabloExpression = """Juan Pablo (.*)""".r
+    val miguelAlfredoExpression = """Miguel Alfredo (.*)""".r
+    val luisAntonioExpression = """Luis Antonio (.*)""".r
+    val johnRyanExpression = """John Ryan (.*)""".r
+    val henryAlbertoExpression = """Henry Alberto (.*)""".r
+    val henryAlejandroExpression = """Henry Alejandro (.*)""".r
 
     codec.onMalformedInput(CodingErrorAction.REPLACE)
     codec.onUnmappableCharacter(CodingErrorAction.REPLACE)
@@ -42,7 +50,17 @@ class CrunchtimeBaseballMapping {
           line("retrosheet_id"), line("retrosheet_name"))
         val retroId = if (line("retrosheet_id") == "") line("mlb_id")
         else line("retrosheet_id")
-        val name = line("mlb_name") match { case nameExpression(first, last) => List(first, last) }
+        val name = line("mlb_name") match {
+          case juanCarlosExpression(last) => List("Juan Carlos", last)
+          case yeanCarlosExpression(last) => List("Yean Carlos", last)
+          case juanPabloExpression(last) => List("Juan Pablo", last)
+          case miguelAlfredoExpression(last) => List("Miguel Alfredo", last)
+          case luisAntonioExpression(last) => List("Luis Antonio", last)
+          case johnRyanExpression(last) => List("John Ryan", last)
+          case henryAlbertoExpression(last) => List("Henry Alberto", last)
+          case henryAlejandroExpression(last) => List("Henry Alejandro", last)
+          case nameExpression(first, last) => List(first, last)
+        }
         val mlbTeam = {
           if (line("mlb_team") == "WSH") "WAS"
           else if (line("mlb_team") == "LAD") "LA"
@@ -51,7 +69,8 @@ class CrunchtimeBaseballMapping {
         }
         if (mlbTeam != "" && !hasLatest) {
           val retroTeam = teamsTable.filter({_.mlbComId === mlbTeam}).map(_.mnemonic).list.head
-          playersTable += Player(retroId, "2015", name(1), name(0), line("bats"), line("throws"), retroTeam, line("mlb_pos"))
+          val lastName = name(1).replaceAll(" Jr.","")
+          playersTable += Player(retroId, "2015", lastName, name(0), line("bats"), line("throws"), retroTeam, line("mlb_pos"))
         }
       }
     }

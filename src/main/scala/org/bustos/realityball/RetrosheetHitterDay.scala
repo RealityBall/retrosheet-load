@@ -21,6 +21,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
 
   var lineupPositionRegime = 0
   var productionRate = 0.0
+  var daysSinceProduction = 0
   var style: String = ""
 
   var RHplateAppearance: Int = 0

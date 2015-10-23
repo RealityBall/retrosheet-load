@@ -300,15 +300,21 @@ object RetrosheetLoad extends App {
       val currentHitterDay = new RetrosheetHitterDay(sortedHistory.head.date, "", "", 0, 0, "", 0)
       val movingAverageData = RunningHitterStatistics(currentHitterDay, emptyRunningHitterData, Queue.empty[DateTime], emptyRunningHitterData, Queue.empty[DateTime], Map.empty[String, Double])
       sortedHistory.foldLeft(movingAverageData)({ case (data, dailyData) => dailyData.accumulate(data); data })
-      sortedHistory.filter(_.pitcherIndex == 1).foldLeft(Queue.empty[Double])({ (x, y) =>
-        if (movingAverageData.fantasyProduction(y.date) > ProductionThreshold) x.enqueue(1.0)
-        else x.enqueue(0.0)
-        while (x.size > MovingAverageWindow / 2) {
-          x.dequeue
+      sortedHistory.filter(_.pitcherIndex == 1).foldLeft((Queue.empty[Double], 0))({ case (x, y) => {
+        if (movingAverageData.fantasyProduction(y.date) > ProductionThreshold) x._1.enqueue(1.0)
+        else x._1.enqueue(0.0)
+        val productionGap = {
+          if (movingAverageData.fantasyProduction(y.date) > ProductionThreshold) 0
+          else x._2 + 1
         }
-        val running = x.foldLeft(0.0)({ (run, prod) => run + prod })
+        while (x._1.size > MovingAverageWindow / 2) {
+          x._1.dequeue
+        }
+        val running = x._1.foldLeft(0.0)({ (run, prod) => run + prod })
         y.productionRate = running / (MovingAverageWindow / 2)
-        x
+        y.daysSinceProduction = productionGap
+        (x._1, productionGap)
+      }
       })
     }
     //println(System.currentTimeMillis - startTime)
@@ -383,7 +389,7 @@ object RetrosheetLoad extends App {
         hitterVolatilityStats ++= volStat
         print(".")
         val fantasyStat = sortedHistory.map({ day =>
-          HitterFantasyDaily(day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex, someOrNone(day.productionRate),
+          HitterFantasyDaily(day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex, someOrNone(day.productionRate), day.daysSinceProduction,
             someOrNone(day.fantasyScores(FanDuelName).rh), someOrNone(day.fantasyScores(FanDuelName).lh), someOrNone(day.fantasyScores(FanDuelName).total),
             someOrNone(day.fantasyScores(DraftKingsName).rh), someOrNone(day.fantasyScores(DraftKingsName).lh), someOrNone(day.fantasyScores(DraftKingsName).total),
             someOrNone(day.fantasyScores(DraftsterName).rh), someOrNone(day.fantasyScores(DraftsterName).lh), someOrNone(day.fantasyScores(DraftsterName).total))
