@@ -1,12 +1,16 @@
 package org.bustos.realityball
 
 import org.bustos.realityball.common.RealityballRecords._
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
 
 class RetrosheetGameInfo(val id: String) {
 
+  val dateParser = DateTimeFormat.forPattern("yyyy/MM/dd")
+  val timeParser = DateTimeFormat.forPattern("hh:mma")
 
-  val game = Game(id, "", "", "", "", 0, "", "")
-  val conditions = GameConditions(id, "", "", false, 0, "", 0, "", "", "")
+  val game = Game(id, "", "", "", new DateTime, 0, "", "")
+  val conditions = GameConditions(id, new DateTime, "", false, 0, "", 0, "", "", "")
   val scoring = GameScoring(id, "", "", "", "", "", 0, 0, "", "", "")
 
   def processInfoRecord(record: String) = {
@@ -15,9 +19,9 @@ class RetrosheetGameInfo(val id: String) {
       case "visteam"    => game.visitingTeam = items(2)
       case "hometeam"   => game.homeTeam = items(2)
       case "site"       => game.site = items(2)
-      case "date"       => game.date = items(2)
+      case "date"       => game.date = dateParser.parseDateTime(items(2))
       case "number"     => game.number = items(2).toInt
-      case "starttime"  => conditions.startTime = items(2)
+      case "starttime"  => conditions.startTime = timeParser.parseDateTime(items(2))
       case "daynight"   => conditions.daynight = items(2)
       case "usedh"      => conditions.usedh = items(2) == "true"
       case "umphome"    => scoring.umphome = items(2)

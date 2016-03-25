@@ -9,15 +9,15 @@ import scala.collection.mutable.Queue
 object RetrosheetHitterDay {
 
   case class RunningHitterStatistics(fullAccum: RetrosheetHitterDay, averagesData: RunningHitterData, averagesDates: Queue[DateTime],
-                                     volatilityData: RunningHitterData, volatilityDates: Queue[DateTime], var fantasyProduction: Map[String, Double])
+                                     volatilityData: RunningHitterData, volatilityDates: Queue[DateTime], var fantasyProduction: Map[DateTime, Double])
 
 }
 
-class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: String, var pitcherIndex: Int, val lineupPosition: Int, val gameId: String, val side: Int) extends StatisticsTrait {
+class RetrosheetHitterDay(var date: DateTime, val id: String, var pitcherId: String, var pitcherIndex: Int, val lineupPosition: Int, val gameId: String, val side: Int) extends StatisticsTrait {
 
   import RetrosheetHitterDay._
 
-  def year: String = date.substring(0, 4)
+  def year: String = CcyymmddFormatter.print(date).substring(0, 4)
 
   var lineupPositionRegime = 0
   var productionRate = 0.0
@@ -88,7 +88,7 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
     dates.distinct.size
   }
 
-  def aggregateFantasyDay(statistic: (String, Queue[Statistic])): Statistic = {
+  def aggregateFantasyDay(statistic: (DateTime, Queue[Statistic])): Statistic = {
     statistic._2.foldLeft(Statistic(statistic._1, 0.0, 0.0, 0.0))({ case (x, y) => x.total = x.total + y.total; x.rh = x.rh + y.rh; x.lh = x.lh + y.lh; x })
   }
 
@@ -175,9 +175,8 @@ class RetrosheetHitterDay(var date: String, val id: String, var pitcherId: Strin
     onBasePercentage = data.fullAccum.onBasePercentage.copy()
     sluggingPercentage = data.fullAccum.sluggingPercentage.copy()
 
-    val dateTime = CcyymmddSlashDelimFormatter.parseDateTime(date)
-    data.averagesDates.enqueue(dateTime)
-    data.volatilityDates.enqueue(dateTime)
+    data.averagesDates.enqueue(date)
+    data.volatilityDates.enqueue(date)
 
     data.averagesData.lineupPosition.enqueue(lineupPosition)
     data.averagesData.ba.enqueue(StatisticInputs(LHhits + RHhits, LHatBat + RHatBat, RHhits, RHatBat, LHhits, LHatBat))

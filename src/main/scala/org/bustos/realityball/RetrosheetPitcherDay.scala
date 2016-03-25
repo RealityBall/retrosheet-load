@@ -18,10 +18,10 @@ class RetrosheetPitcherDay(val id: String, val game: String, var date: DateTime,
 
   val MovingAverageGameWindow = 25
 
-  val record = new PitcherDaily(id, game, CcyymmddFormatter.print(date), 0, opposing, win, loss, save, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, 0, "")
+  val record = new PitcherDaily(id, game, date, 0, opposing, win, loss, save, 0, 0, 0, 0, 0, 0, 0, 0, false, false, 0, 0, "")
 
-  var fantasyScores = FantasyGamesPitching.keys.map(_ -> Statistic(CcyymmddFormatter.print(date), 0.0, 0.0, 0.0)).toMap
-  var fantasyScoresMov = FantasyGamesPitching.keys.map(_ -> Statistic(CcyymmddFormatter.print(date), 0.0, 0.0, 0.0)).toMap
+  var fantasyScores = FantasyGamesPitching.keys.map(_ -> Statistic(date, 0.0, 0.0, 0.0)).toMap
+  var fantasyScoresMov = FantasyGamesPitching.keys.map(_ -> Statistic(date, 0.0, 0.0, 0.0)).toMap
 
   def updateFantasyScore(playOutcome: String, gameName: String, track: Statistic): Statistic = {
     track.total = track.total + FantasyGamesPitching(gameName)(playOutcome)

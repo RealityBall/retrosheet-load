@@ -47,9 +47,9 @@ class CrunchtimeBaseballMapping {
           line("mlb_pos"), line("bats"), line("throws"),
           line("bref_id"), line("bref_name"),
           line("espn_id"), line("espn_name"),
-          line("retrosheet_id"), line("retrosheet_name"))
-        val retroId = if (line("retrosheet_id") == "") line("mlb_id")
-        else line("retrosheet_id")
+          line("retro_id"), line("retro_name"))
+        val retroId = if (line("retro_id") == "") line("mlb_id")
+        else line("retro_id")
         val name = line("mlb_name") match {
           case juanCarlosExpression(last) => List("Juan Carlos", last)
           case yeanCarlosExpression(last) => List("Yean Carlos", last)
