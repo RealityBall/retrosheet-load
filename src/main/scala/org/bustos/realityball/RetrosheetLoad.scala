@@ -1,26 +1,30 @@
 package org.bustos.realityball
 
-import org.joda.time._
-import scala.slick.driver.MySQLDriver.simple._
-import scala.slick.jdbc.meta.MTable
-import scala.slick.lifted.AbstractTable
-import scala.util.matching.Regex
-import scala.io.Source
-import scala.collection.parallel._
 import java.io.File
-import org.slf4j.LoggerFactory
-import org.bustos.realityball.common.RealityballRecords._
+
+import org.bustos.realityball.FantasyScoreSheet._
+import org.bustos.realityball.RetrosheetHitterDay._
+import org.bustos.realityball.RetrosheetPitcherDay._
 import org.bustos.realityball.common.RealityballConfig._
-import RetrosheetHitterDay._
-import RetrosheetPitcherDay._
-import FantasyScoreSheet._
+import org.bustos.realityball.common.RealityballRecords._
+import org.joda.time._
+import org.slf4j.LoggerFactory
+import slick.lifted.TableQuery
+
+import scala.io.Source
+import slick.jdbc.MySQLProfile.api._
+import slick.jdbc.meta.MTable
+
+import scala.util.matching.Regex
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration._
 
 object RetrosheetLoad extends App {
 
-  import scala.collection.mutable.MutableList
   import scala.collection.mutable.Queue
 
-  val logger = LoggerFactory.getLogger(getClass)
+  val logger = LoggerFactory.getLogger("RetrosheetLoad")
 
   val gameIdExpression: Regex = "id,(.*)".r
   val gameInfoExpression: Regex = "info,(.*)".r
@@ -33,7 +37,7 @@ object RetrosheetLoad extends App {
   val teamMetaExpression: Regex = "(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)".r
   val erExpression: Regex = "data,er,(.*),(.*)".r
 
-  val tables: Map[String, TableQuery[_ <: slick.driver.MySQLDriver.Table[_]]] = Map(
+  val tables: Map[String, TableQuery[_ <: Table[_]]] = Map(
     ("hitterRawLHstats" -> hitterRawLH), ("hitterRawRHstats" -> hitterRawRH), ("hitterDailyStats" -> hitterStats),
     ("hitterMovingStats" -> hitterMovingStats), ("hitterFantasyStats" -> hitterFantasyTable), ("hitterFantasyMovingStats" -> hitterFantasyMovingTable), ("hitterFantasyVolatilityStats" -> hitterFantasyVolatilityTable),
     ("pitcherFantasyStats" -> pitcherFantasy), ("pitcherFantasyMovingStats" -> pitcherFantasyMoving), ("hitterVolatilityStats" -> hitterVolatilityStats),
@@ -68,26 +72,24 @@ object RetrosheetLoad extends App {
   }
 
   def maintainDatabase = {
-    db.withSession { implicit session =>
-      def maintainTable(schema: TableQuery[_ <: slick.driver.MySQLDriver.Table[_]], name: String) = {
-        if (!MTable.getTables(name).list.isEmpty) {
-          schema.ddl.drop
-        }
-        schema.ddl.create
+    val existing_tables = Await.result(db.run(MTable.getTables), Inf).toList.map(_.name.name)
+    def maintainTable(rsTable: TableQuery[_ <: Table[_]], name: String) = {
+      if (existing_tables.contains(name)) {
+        Await.result(db.run(rsTable.schema.drop), Inf)
       }
-      tables.map { case (k, v) => maintainTable(v, k) }
+      logger.info("Creating table " + name)
+      Await.result(db.run(rsTable.schema.create), Inf)
     }
+    tables.map { case (k, v) => maintainTable(v, k) }
   }
 
   def processBallparks = {
     logger.info("Updating ballpark codes...")
     val ballparkFile = new File(DataRoot + "retrosheet/parkcode.txt")
-    db.withSession { implicit session =>
-      Source.fromFile(ballparkFile).getLines.foreach { line =>
-        if (!line.startsWith("PARKID")) {
-          val data = line.split(",", -1)
-          ballparkTable += Ballpark(data(0), data(1), data(2), data(3), data(4), data(5), data(6), data(7), data(8))
-        }
+    Source.fromFile(ballparkFile).getLines.foreach { line =>
+      if (!line.startsWith("PARKID")) {
+        val data = line.split(",", -1)
+        Await.result(db.run(ballparkTable += Ballpark(data(0), data(1), data(2), data(3), data(4), data(5), data(6), data(7), data(8))), Inf)
       }
     }
   }
@@ -104,30 +106,27 @@ object RetrosheetLoad extends App {
         }
       }.toMap
     }
-    db.withTransaction { implicit session =>
-      Source.fromFile(teamFile).getLines.foreach {
-        _ match {
-          case teamExpression(mnemonic, league, city, name) => teamsTable += Team(year, mnemonic, league, city, name, metaData(mnemonic)._1, metaData(mnemonic)._2, metaData(mnemonic)._3,
-            metaData(mnemonic)._4, metaData(mnemonic)._5, metaData(mnemonic)._6, metaData(mnemonic)._7, metaData(mnemonic)._8)
-          case _ =>
-        }
+    Source.fromFile(teamFile).getLines.foreach {
+      _ match {
+        case teamExpression(mnemonic, league, city, name) =>
+          Await.result(db.run(teamsTable += Team(year, mnemonic, league, city, name,
+            metaData(mnemonic)._1, metaData(mnemonic)._2, metaData(mnemonic)._3,
+            metaData(mnemonic)._4, metaData(mnemonic)._5, metaData(mnemonic)._6,
+            metaData(mnemonic)._7, metaData(mnemonic)._8)), Inf)
+        case _ =>
       }
     }
   }
 
   def playersForYear(year: String): Map[String, Player] = {
     if (year == CurrentYear.toString) {
-      db.withTransaction { implicit session =>
-        playersTable.filter({ x => x.year === "2015" || x.year === "2014" ||
-          x.id === "blazm001" || x.id === "betar001"}).list.map { x =>
+      Await.result(db.run(playersTable.filter({ x => x.year === "2015" || x.year === "2014" ||
+          x.id === "blazm001" || x.id === "betar001"}).result), Inf).map { x =>
           (x.id -> x)
         } toMap
-      }
     }
     else {
-      db.withTransaction { implicit session =>
-        playersTable.filter({ x => x.year === year }).delete
-      }
+      Await.result(db.run(playersTable.filter({ x => x.year === year }).delete), Inf)
       (new File(DataRoot + "retrosheet/" + year + "eve")).listFiles.filter(x => x.getName.endsWith(".ROS")).map({
         Source.fromFile(_).getLines.map {
           _ match {
@@ -184,7 +183,6 @@ object RetrosheetLoad extends App {
     }
 
     eventFiles.map { f =>
-      println("")
       logger.info(f.getName + " - ")
       var currentGame: RetrosheetGameInfo = null
       var currentBallpark: BallparkDaily = null
@@ -201,7 +199,7 @@ object RetrosheetLoad extends App {
             ballparks += (currentGame.game.id -> currentBallpark)
             games = currentGame :: games
             gamePitchers = gamePitchers.empty
-            print(currentGame.game.id + ",")
+            logger.info(currentGame.game.id)
           }
           case gameInfoExpression(data) => {
             currentGame.processInfoRecord(line)
@@ -266,20 +264,18 @@ object RetrosheetLoad extends App {
         }
       }
     }
-    db.withTransaction { implicit session =>
-      logger.info("Games for " + year)
-      gamesTable ++= games.map(_.game)
-      logger.info("Game Conditions for " + year)
-      gameConditionsTable ++= games.map(_.conditions)
-      logger.info("Game Scoring for " + year)
-      gameScoringTable ++= games.map(_.scoring)
-      if (year.toInt < CurrentYear) {
-        logger.info("Players for " + year)
-        playersTable ++= players.values.map({ player => Player(player.id, year, player.lastName, player.firstName, player.batsWith, player.throwsWith, player.team, player.position) })
-      }
-      logger.info("Ballpark dailies for " + year)
-      ballparkDailiesTable ++= ballparks.values
+    logger.info("Games for " + year)
+    Await.result(db.run(gamesTable ++= games.map(_.game)), Inf)
+    logger.info("Game Conditions for " + year)
+    Await.result(db.run(gameConditionsTable ++= games.map(_.conditions)), Inf)
+    logger.info("Game Scoring for " + year)
+    Await.result(db.run(gameScoringTable ++= games.map(_.scoring)), Inf)
+    if (year.toInt < CurrentYear) {
+      logger.info("Players for " + year)
+      Await.result(db.run(playersTable ++= players.values.map({ player => Player(player.id, year, player.lastName, player.firstName, player.batsWith, player.throwsWith, player.team, player.position) })), Inf)
     }
+    logger.info("Ballpark dailies for " + year)
+    Await.result(db.run(ballparkDailiesTable ++= ballparks.values), Inf)
   }
 
   def emptyRunningHitterData: RunningHitterData = {
@@ -317,7 +313,6 @@ object RetrosheetLoad extends App {
       }
       })
     }
-    //println(System.currentTimeMillis - startTime)
     runningCount = 0
     println(".")
     logger.info("Computing Running Pitcher Statistics.")
@@ -333,128 +328,122 @@ object RetrosheetLoad extends App {
   }
 
   def persist = {
-    println("")
     var progress: Int = 0
     batterSummaries.values.map { playerHistory =>
-      db.withTransaction { implicit session =>
-
-        //val playerHistory = batterSummaries("cabrm001")
-        progress = progress + 1
-        val sortedHistory = playerHistory.sortBy { x => x.date }
-        print(playerHistory.head.id + " [" + progress + "/" + batterSummaries.size + "] " + sortedHistory.length + " ")
-        print(".")
-        val rawLH = sortedHistory.map({ day =>
-          (day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex,
-            day.LHatBat, day.LHsingle, day.LHdouble, day.LHtriple, day.LHhomeRun, day.LHRBI, day.LHruns,
-            day.LHbaseOnBalls, day.LHhitByPitch, day.LHsacFly, day.LHsacHit, day.LHstrikeOut, day.LHflyBall, day.LHgroundBall)
-        })
-        print(">")
-        hitterRawLH ++= rawLH
-        print(".")
-        val rawRH = sortedHistory.map({ day =>
-          (day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex,
-            day.RHatBat, day.RHsingle, day.RHdouble, day.RHtriple, day.RHhomeRun, day.RHRBI, day.RHruns,
-            day.RHbaseOnBalls, day.RHhitByPitch, day.RHsacFly, day.RHsacHit, day.RHstrikeOut, day.RHflyBall, day.RHgroundBall)
-        })
-        print(">")
-        hitterRawRH ++= rawRH
-        print(".")
-        val hStat = sortedHistory.map({ day =>
-          (day.date, day.id, day.gameId, day.side, day.lineupPosition, day.lineupPositionRegime, day.pitcherId, day.pitcherIndex, day.RHatBat + day.LHatBat, day.RHplateAppearance + day.LHplateAppearance,
-            someOrNone(day.dailyBattingAverage.rh), someOrNone(day.dailyBattingAverage.lh), someOrNone(day.dailyBattingAverage.total),
-            someOrNone(day.battingAverage.rh), someOrNone(day.battingAverage.lh), someOrNone(day.battingAverage.total),
-            someOrNone(day.onBasePercentage.rh), someOrNone(day.onBasePercentage.lh), someOrNone(day.onBasePercentage.total),
-            someOrNone(day.sluggingPercentage.rh), someOrNone(day.sluggingPercentage.lh), someOrNone(day.sluggingPercentage.total))
-        })
-        print(">")
-        hitterStats ++= hStat
-        print(".")
-        val movStat = sortedHistory.map({ day =>
-          HitterStatsMoving(day.date, day.id, day.pitcherId, day.pitcherIndex,
-            someOrNone(day.battingAverageMov.rh), someOrNone(day.battingAverageMov.lh), someOrNone(day.battingAverageMov.total),
-            someOrNone(day.onBasePercentageMov.rh), someOrNone(day.onBasePercentageMov.lh), someOrNone(day.onBasePercentageMov.total),
-            someOrNone(day.sluggingPercentageMov.rh), someOrNone(day.sluggingPercentageMov.lh), someOrNone(day.sluggingPercentageMov.total),
-            day.RHstyle, day.LHstyle, day.style)
-        })
-        print(">")
-        hitterMovingStats ++= movStat
-        print(".")
-        val volStat = sortedHistory.map({ day =>
-          (day.date, day.id, day.pitcherId, day.pitcherIndex,
-            someOrNone(day.battingVolatility.rh), someOrNone(day.battingVolatility.lh), someOrNone(day.battingVolatility.total),
-            someOrNone(day.onBaseVolatility.rh), someOrNone(day.onBaseVolatility.lh), someOrNone(day.onBaseVolatility.total),
-            someOrNone(day.sluggingVolatility.rh), someOrNone(day.sluggingVolatility.lh), someOrNone(day.sluggingVolatility.total))
-        })
-        print(">")
-        hitterVolatilityStats ++= volStat
-        print(".")
-        val fantasyStat = sortedHistory.map({ day =>
-          HitterFantasyDaily(day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex, someOrNone(day.productionRate), day.daysSinceProduction,
-            someOrNone(day.fantasyScores(FanDuelName).rh), someOrNone(day.fantasyScores(FanDuelName).lh), someOrNone(day.fantasyScores(FanDuelName).total),
-            someOrNone(day.fantasyScores(DraftKingsName).rh), someOrNone(day.fantasyScores(DraftKingsName).lh), someOrNone(day.fantasyScores(DraftKingsName).total),
-            someOrNone(day.fantasyScores(DraftsterName).rh), someOrNone(day.fantasyScores(DraftsterName).lh), someOrNone(day.fantasyScores(DraftsterName).total))
-        })
-        print(">")
-        hitterFantasyTable ++= fantasyStat
-        print(".")
-        val fantasyMovStat = sortedHistory.map({ day =>
-          HitterFantasy(day.date, day.id, day.pitcherId, day.pitcherIndex,
-            someOrNone(day.fantasyScoresMov(FanDuelName).rh), someOrNone(day.fantasyScoresMov(FanDuelName).lh), someOrNone(day.fantasyScoresMov(FanDuelName).total),
-            someOrNone(day.fantasyScoresMov(DraftKingsName).rh), someOrNone(day.fantasyScoresMov(DraftKingsName).lh), someOrNone(day.fantasyScoresMov(DraftKingsName).total),
-            someOrNone(day.fantasyScoresMov(DraftsterName).rh), someOrNone(day.fantasyScoresMov(DraftsterName).lh), someOrNone(day.fantasyScoresMov(DraftsterName).total))
-        })
-        print(">")
-        hitterFantasyMovingTable ++= fantasyMovStat
-        print(".")
-        val fantasyVolStat = sortedHistory.map({ day =>
-          HitterFantasy(day.date, day.id, day.pitcherId, day.pitcherIndex,
-            someOrNone(day.fantasyScoresVolatility(FanDuelName).rh), someOrNone(day.fantasyScoresVolatility(FanDuelName).lh), someOrNone(day.fantasyScoresVolatility(FanDuelName).total),
-            someOrNone(day.fantasyScoresVolatility(DraftKingsName).rh), someOrNone(day.fantasyScoresVolatility(DraftKingsName).lh), someOrNone(day.fantasyScoresVolatility(DraftKingsName).total),
-            someOrNone(day.fantasyScoresVolatility(DraftsterName).rh), someOrNone(day.fantasyScoresVolatility(DraftsterName).lh), someOrNone(day.fantasyScoresVolatility(DraftsterName).total))
-        })
-        print(">")
-        hitterFantasyVolatilityTable ++= fantasyVolStat
-        println(".")
-      }
+      //val playerHistory = batterSummaries("cabrm001")
+      progress = progress + 1
+      val sortedHistory = playerHistory.sortBy { x => x.date }
+      logger.info("Batter - " + playerHistory.head.id + " [" + progress + "/" + batterSummaries.size + "] " + sortedHistory.length + " ")
+      print(".")
+      val rawLH = sortedHistory.map({ day =>
+        (day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex,
+          day.LHatBat, day.LHsingle, day.LHdouble, day.LHtriple, day.LHhomeRun, day.LHRBI, day.LHruns,
+          day.LHbaseOnBalls, day.LHhitByPitch, day.LHsacFly, day.LHsacHit, day.LHstrikeOut, day.LHflyBall, day.LHgroundBall)
+      })
+      print(">")
+      Await.result(db.run(hitterRawLH ++= rawLH), Inf)
+      print(".")
+      val rawRH = sortedHistory.map({ day =>
+        (day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex,
+          day.RHatBat, day.RHsingle, day.RHdouble, day.RHtriple, day.RHhomeRun, day.RHRBI, day.RHruns,
+          day.RHbaseOnBalls, day.RHhitByPitch, day.RHsacFly, day.RHsacHit, day.RHstrikeOut, day.RHflyBall, day.RHgroundBall)
+      })
+      print(">")
+      Await.result(db.run(hitterRawRH ++= rawRH), Inf)
+      print(".")
+      val hStat = sortedHistory.map({ day =>
+        (day.date, day.id, day.gameId, day.side, day.lineupPosition, day.lineupPositionRegime, day.pitcherId, day.pitcherIndex, day.RHatBat + day.LHatBat, day.RHplateAppearance + day.LHplateAppearance,
+          someOrNone(day.dailyBattingAverage.rh), someOrNone(day.dailyBattingAverage.lh), someOrNone(day.dailyBattingAverage.total),
+          someOrNone(day.battingAverage.rh), someOrNone(day.battingAverage.lh), someOrNone(day.battingAverage.total),
+          someOrNone(day.onBasePercentage.rh), someOrNone(day.onBasePercentage.lh), someOrNone(day.onBasePercentage.total),
+          someOrNone(day.sluggingPercentage.rh), someOrNone(day.sluggingPercentage.lh), someOrNone(day.sluggingPercentage.total))
+      })
+      print(">")
+      Await.result(db.run(hitterStats ++= hStat), Inf)
+      print(".")
+      val movStat = sortedHistory.map({ day =>
+        HitterStatsMoving(day.date, day.id, day.pitcherId, day.pitcherIndex,
+          someOrNone(day.battingAverageMov.rh), someOrNone(day.battingAverageMov.lh), someOrNone(day.battingAverageMov.total),
+          someOrNone(day.onBasePercentageMov.rh), someOrNone(day.onBasePercentageMov.lh), someOrNone(day.onBasePercentageMov.total),
+          someOrNone(day.sluggingPercentageMov.rh), someOrNone(day.sluggingPercentageMov.lh), someOrNone(day.sluggingPercentageMov.total),
+          day.RHstyle, day.LHstyle, day.style)
+      })
+      print(">")
+      Await.result(db.run(hitterMovingStats ++= movStat), Inf)
+      print(".")
+      val volStat = sortedHistory.map({ day =>
+        (day.date, day.id, day.pitcherId, day.pitcherIndex,
+          someOrNone(day.battingVolatility.rh), someOrNone(day.battingVolatility.lh), someOrNone(day.battingVolatility.total),
+          someOrNone(day.onBaseVolatility.rh), someOrNone(day.onBaseVolatility.lh), someOrNone(day.onBaseVolatility.total),
+          someOrNone(day.sluggingVolatility.rh), someOrNone(day.sluggingVolatility.lh), someOrNone(day.sluggingVolatility.total))
+      })
+      print(">")
+      Await.result(db.run(hitterVolatilityStats ++= volStat), Inf)
+      print(".")
+      val fantasyStat = sortedHistory.map({ day =>
+        HitterFantasyDaily(day.date, day.id, day.gameId, day.side, day.pitcherId, day.pitcherIndex, someOrNone(day.productionRate), day.daysSinceProduction,
+          someOrNone(day.fantasyScores(FanDuelName).rh), someOrNone(day.fantasyScores(FanDuelName).lh), someOrNone(day.fantasyScores(FanDuelName).total),
+          someOrNone(day.fantasyScores(DraftKingsName).rh), someOrNone(day.fantasyScores(DraftKingsName).lh), someOrNone(day.fantasyScores(DraftKingsName).total),
+          someOrNone(day.fantasyScores(DraftsterName).rh), someOrNone(day.fantasyScores(DraftsterName).lh), someOrNone(day.fantasyScores(DraftsterName).total))
+      })
+      print(">")
+      Await.result(db.run(hitterFantasyTable ++= fantasyStat), Inf)
+      print(".")
+      val fantasyMovStat = sortedHistory.map({ day =>
+        HitterFantasy(day.date, day.id, day.pitcherId, day.pitcherIndex,
+          someOrNone(day.fantasyScoresMov(FanDuelName).rh), someOrNone(day.fantasyScoresMov(FanDuelName).lh), someOrNone(day.fantasyScoresMov(FanDuelName).total),
+          someOrNone(day.fantasyScoresMov(DraftKingsName).rh), someOrNone(day.fantasyScoresMov(DraftKingsName).lh), someOrNone(day.fantasyScoresMov(DraftKingsName).total),
+          someOrNone(day.fantasyScoresMov(DraftsterName).rh), someOrNone(day.fantasyScoresMov(DraftsterName).lh), someOrNone(day.fantasyScoresMov(DraftsterName).total))
+      })
+      print(">")
+      Await.result(db.run(hitterFantasyMovingTable ++= fantasyMovStat), Inf)
+      print(".")
+      val fantasyVolStat = sortedHistory.map({ day =>
+        HitterFantasy(day.date, day.id, day.pitcherId, day.pitcherIndex,
+          someOrNone(day.fantasyScoresVolatility(FanDuelName).rh), someOrNone(day.fantasyScoresVolatility(FanDuelName).lh), someOrNone(day.fantasyScoresVolatility(FanDuelName).total),
+          someOrNone(day.fantasyScoresVolatility(DraftKingsName).rh), someOrNone(day.fantasyScoresVolatility(DraftKingsName).lh), someOrNone(day.fantasyScoresVolatility(DraftKingsName).total),
+          someOrNone(day.fantasyScoresVolatility(DraftsterName).rh), someOrNone(day.fantasyScoresVolatility(DraftsterName).lh), someOrNone(day.fantasyScoresVolatility(DraftsterName).total))
+      })
+      print(">")
+      Await.result(db.run(hitterFantasyVolatilityTable ++= fantasyVolStat), Inf)
+      println(".")
     }
 
     progress = 0
     pitcherSummaries.values.map { playerHistory =>
-      db.withTransaction { implicit session =>
-        progress = progress + 1
-        val sortedHistory = playerHistory.sorted(Ordering.by({ x: RetrosheetPitcherDay => CcyymmddFormatter.print(x.date) }))
-        print(playerHistory.head.id + " [" + progress + "/" + pitcherSummaries.size + "] " + sortedHistory.length + " ")
-        print(".")
-        val pitcherDaily = sortedHistory.map(_.record)
-        print(">")
-        pitcherDailyTable ++= pitcherDaily
-        print(".")
-        val fantasyStat = sortedHistory.map({ day =>
-          (day.date, day.id,
-            someOrNone(day.fantasyScores(FanDuelName).total), someOrNone(day.fantasyScores(DraftKingsName).total), someOrNone(day.fantasyScores(DraftsterName).total))
-        })
-        print(">")
-        pitcherFantasy ++= fantasyStat
-        print(".")
-        val fantasyMovStat = sortedHistory.map({ day =>
-          (day.date, day.id,
-            someOrNone(day.fantasyScoresMov(FanDuelName).total), someOrNone(day.fantasyScoresMov(DraftKingsName).total), someOrNone(day.fantasyScoresMov(DraftsterName).total))
-        })
-        println(">")
-        pitcherFantasyMoving ++= fantasyMovStat
-      }
+      progress = progress + 1
+      val sortedHistory = playerHistory.sorted(Ordering.by({ x: RetrosheetPitcherDay => CcyymmddFormatter.print(x.date) }))
+      logger.info("Pitcher - " + playerHistory.head.id + " [" + progress + "/" + pitcherSummaries.size + "] " + sortedHistory.length + " ")
+      print(".")
+      val pitcherDaily = sortedHistory.map(_.record)
+      print(">")
+      Await.result(db.run(pitcherDailyTable ++= pitcherDaily), Inf)
+      print(".")
+      val fantasyStat = sortedHistory.map({ day =>
+        (day.date, day.id,
+          someOrNone(day.fantasyScores(FanDuelName).total), someOrNone(day.fantasyScores(DraftKingsName).total), someOrNone(day.fantasyScores(DraftsterName).total))
+      })
+      print(">")
+      Await.result(db.run(pitcherFantasy ++= fantasyStat), Inf)
+      print(".")
+      val fantasyMovStat = sortedHistory.map({ day =>
+        (day.date, day.id,
+          someOrNone(day.fantasyScoresMov(FanDuelName).total), someOrNone(day.fantasyScoresMov(DraftKingsName).total), someOrNone(day.fantasyScoresMov(DraftsterName).total))
+      })
+      println(">")
+      Await.result(db.run(pitcherFantasyMoving ++= fantasyMovStat), Inf)
     }
   }
 
+  val startYear = 2010 // 2010
   var batterSummaries = Map.empty[String, List[RetrosheetHitterDay]]
   var pitcherSummaries = Map.empty[String, List[RetrosheetPitcherDay]]
   maintainDatabase
-  (2010 to CurrentYear - 1).foreach { i => processTeams(i.toString) }
+  (startYear to CurrentYear - 1).foreach { i => processTeams(i.toString) }
   val crunchtime = new CrunchtimeBaseballMapping
   crunchtime.processIdMappings
   processBallparks
-  (2010 to CurrentYear).foreach { i => processYear(i.toString) }
-  //(2013 to 2014).map { i => processYear(i.toString) }
+  (startYear to CurrentYear).foreach { i => processYear(i.toString) }
   computeStatistics
   persist
 

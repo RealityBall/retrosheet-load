@@ -15,6 +15,7 @@ class RetrosheetGameInfo(val id: String) {
 
   def processInfoRecord(record: String) = {
     val items = record.split(",")
+    println(record)
     items(1) match {
       case "visteam"    => game.visitingTeam = items(2)
       case "hometeam"   => game.homeTeam = items(2)
@@ -37,8 +38,8 @@ class RetrosheetGameInfo(val id: String) {
       case "sky"        => conditions.sky = items(2)
       case "timeofgame" => scoring.timeofgame = items(2).toFloat.toInt
       case "attendance" => scoring.attendance = items(2).toFloat.toInt
-      case "wp"         => scoring.wp = items(2)
-      case "lp"         => scoring.lp = items(2)
+      case "wp"         => if (items.size > 2) scoring.wp = items(2) else ""
+      case "lp"         => if (items.size > 2) scoring.lp = items(2) else ""
       case "save"       => if (items.length > 2) scoring.save = items(2)
       case _            =>
     }
