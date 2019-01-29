@@ -27,7 +27,6 @@ import org.bustos.realityball.common.RealityballConfig._
 import org.bustos.realityball.common.RealityballRecords._
 import org.slf4j.LoggerFactory
 import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.meta.MTable
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration._
@@ -56,9 +55,10 @@ class CrunchtimeBaseballMapping {
 
     val hasLatest = Await.result(db.run(playersTable.filter(_.year === "2015").result), Inf).nonEmpty
 
-    val existing_tables = Await.result(db.run(MTable.getTables), Inf).toList.map(_.name.name)
-    if (existing_tables.contains("idMapping")) {
+    try {
       Await.result(db.run(idMappingTable.schema.drop), Inf)
+    } catch {
+      case e: Exception =>
     }
     Await.result(db.run(idMappingTable.schema.create), Inf)
 

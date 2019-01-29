@@ -23,7 +23,7 @@ val projectLibraries = Seq(
   "org.slf4j"            %   "slf4j-log4j12"        % slf4jV,
   "org.scalatest"        %%  "scalatest"            % "3.0.1" % "test",
   "io.spray"             %%  "spray-json"           % "1.3.1",
-  "mysql"                %   "mysql-connector-java" % "5.1.23",
+  "mysql"                %   "mysql-connector-java" % "latest.release",
   "joda-time"            %   "joda-time"            % "2.7",
   "org.joda"             %   "joda-convert"         % "1.2"
 )

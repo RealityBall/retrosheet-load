@@ -25,6 +25,7 @@ import org.bustos.realityball.FantasyScoreSheet._
 import org.bustos.realityball.RetrosheetHitterDay._
 import org.bustos.realityball.RetrosheetPitcherDay._
 import org.bustos.realityball.common.RealityballConfig._
+import org.bustos.realityball.common.RealityballJsonProtocol
 import org.bustos.realityball.common.RealityballRecords._
 import org.joda.time._
 import org.slf4j.LoggerFactory
@@ -35,11 +36,10 @@ import slick.jdbc.MySQLProfile.api._
 import slick.jdbc.meta.MTable
 
 import scala.util.matching.Regex
-
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration._
 
-object RetrosheetLoad extends App {
+object RetrosheetLoad extends App with RealityballJsonProtocol {
 
   import scala.collection.mutable.Queue
 
@@ -93,8 +93,10 @@ object RetrosheetLoad extends App {
   def maintainDatabase = {
     val existing_tables = Await.result(db.run(MTable.getTables), Inf).toList.map(_.name.name)
     def maintainTable(rsTable: TableQuery[_ <: Table[_]], name: String) = {
-      if (existing_tables.contains(name)) {
+      try {
         Await.result(db.run(rsTable.schema.drop), Inf)
+      } catch {
+        case e: Exception =>
       }
       logger.info("Creating table " + name)
       Await.result(db.run(rsTable.schema.create), Inf)
@@ -158,7 +160,7 @@ object RetrosheetLoad extends App {
   }
 
   def dateFromString(dateString: String): DateTime = {
-    new DateTime(dateString.substring(0, 4).toInt, dateString.substring(5, 7).toInt, dateString.substring(8, 10).toInt, 0, 0)
+    new DateTime(dateString.substring(0, 4).toInt, dateString.substring(5, 7).toInt, dateString.substring(8, 10).toInt, 0, 0, DateTimeZone.UTC)
   }
 
   def processYear(year: String) = {

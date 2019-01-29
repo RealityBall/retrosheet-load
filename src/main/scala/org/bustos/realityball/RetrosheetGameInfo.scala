@@ -34,7 +34,7 @@ class RetrosheetGameInfo(val id: String) {
 
   def processInfoRecord(record: String) = {
     val items = record.split(",")
-    println(record)
+    //println(record)
     items(1) match {
       case "visteam"    => game.visitingTeam = items(2)
       case "hometeam"   => game.homeTeam = items(2)
