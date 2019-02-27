@@ -28,7 +28,7 @@ class RetrosheetGameInfo(val id: String) {
   val dateParser = DateTimeFormat.forPattern("yyyy/MM/dd")
   val timeParser = DateTimeFormat.forPattern("hh:mma")
 
-  val game = Game(id, "", "", "", new DateTime, 0, "", "")
+  val game = Game(id, "", "", "", new DateTime, 0, "", "", "")
   val conditions = GameConditions(id, new DateTime, "", false, 0, "", 0, "", "", "")
   val scoring = GameScoring(id, "", "", "", "", "", 0, 0, "", "", "")
 

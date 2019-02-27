@@ -456,13 +456,13 @@ object RetrosheetLoad extends App with RealityballJsonProtocol {
     }
   }
 
+  val crunchtime = new CrunchtimeBaseballMapping
+  crunchtime.processIdMappings
   val startYear = 2010 // 2010
   var batterSummaries = Map.empty[String, List[RetrosheetHitterDay]]
   var pitcherSummaries = Map.empty[String, List[RetrosheetPitcherDay]]
   maintainDatabase
   (startYear to CurrentYear - 1).foreach { i => processTeams(i.toString) }
-  val crunchtime = new CrunchtimeBaseballMapping
-  crunchtime.processIdMappings
   processBallparks
   (startYear to CurrentYear).foreach { i => processYear(i.toString) }
   computeStatistics

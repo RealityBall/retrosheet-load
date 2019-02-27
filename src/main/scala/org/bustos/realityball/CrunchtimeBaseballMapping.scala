@@ -22,13 +22,15 @@ package org.bustos.realityball
 import java.io.File
 import java.nio.charset.CodingErrorAction
 
+import org.joda.time._
 import com.github.tototoshi.csv._
 import org.bustos.realityball.common.RealityballConfig._
 import org.bustos.realityball.common.RealityballRecords._
 import org.slf4j.LoggerFactory
 import slick.jdbc.MySQLProfile.api._
+import scala.concurrent.ExecutionContext.Implicits.global
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration._
 import scala.io.Codec
 
@@ -63,12 +65,12 @@ class CrunchtimeBaseballMapping {
     Await.result(db.run(idMappingTable.schema.create), Inf)
 
     val reader = CSVReader.open(new File(DataRoot + "/crunchtimeBaseball/master.csv"))
-    reader.allWithHeaders.foreach { line =>
-      idMappingTable += IdMapping(line("mlb_id"), line("mlb_name"), line("mlb_team"),
+    val inserts = reader.allWithHeaders.map { line =>
+      val mapping = db.run(idMappingTable += IdMapping(line("mlb_id"), line("mlb_name"), line("mlb_team"),
         line("mlb_pos"), line("bats"), line("throws"),
         line("bref_id"), line("bref_name"),
         line("espn_id"), line("espn_name"),
-        line("retro_id"), line("retro_name"))
+        line("retro_id"), line("retro_name")))
       val retroId = if (line("retro_id") == "") line("mlb_id")
       else line("retro_id")
       val name = line("mlb_name") match {
@@ -91,9 +93,11 @@ class CrunchtimeBaseballMapping {
       if (mlbTeam != "" && !hasLatest) {
         val retroTeam = Await.result(db.run(teamsTable.filter({_.mlbComId === mlbTeam}).map(_.mnemonic).result), Inf).head
         val lastName = name(1).replaceAll(" Jr.","")
-        playersTable += Player(retroId, "2015", lastName, name(0), line("bats"), line("throws"), retroTeam, line("mlb_pos"))
+        Await.result(db.run(playersTable += Player(retroId, (new DateTime).getYear.toString, lastName, name(0), line("bats"), line("throws"), retroTeam, line("mlb_pos"))), Inf)
       }
+      mapping
     }
+    Await.result(Future.sequence(inserts), Inf)
   }
 
 }
