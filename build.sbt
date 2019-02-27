@@ -6,7 +6,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.11.7"
 )
 
-lazy val commons = ProjectRef(uri("git@github.com:RealityBall/common.git"), "commons")
+lazy val commons = ProjectRef(uri("https://github.com/RealityBall/common.git"), "commons")
 //ProjectRef(file("../common"), "common")
 
 lazy val root = (project in file("."))
